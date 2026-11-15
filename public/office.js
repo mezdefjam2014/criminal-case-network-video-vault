@@ -119,7 +119,7 @@ dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove("over"); pick(e.dat
 // ---------- add / edit ----------
 const localTime = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""; };
 function edit(v) {
-  editing = v || null; picked = null;
+  editing = v || null; picked = null; asked = "";
   $("#f-head").textContent = v ? "Edit film" : "Add a film";
   $("#f-title").value = v?.title || ""; $("#f-youtube").value = v?.youtube || ""; $("#f-trailer").value = v?.trailer || "";
   $("#f-release").value = localTime(v?.release); $("#f-desc").value = v?.description || ""; $("#f-kind").value = v?.kind || "Documentary";
@@ -132,6 +132,32 @@ function edit(v) {
 }
 const closeEditor = () => { $("#editor").hidden = true; };
 $("#add").onclick = () => edit(null); $("#cancel").onclick = closeEditor; $("#cancel2").onclick = closeEditor;
+
+// Paste a YouTube link and the empty boxes fill themselves in from YouTube. Anything you already typed is left alone.
+let asked = "";
+async function autofill(link) {
+  const id = ytId(link); if (!id || id === asked) return;
+  if (!picked && !editing?.cover) { $("#f-prev").src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`; $("#drop-text").hidden = true; }
+  const T = $("#f-title"), D = $("#f-desc"), L = $("#f-length");
+  if (T.value.trim() && D.value.trim() && L.value.trim()) return;
+  asked = id; say("#f-msg", "Getting the title and description from YouTube...");
+  try {
+    const d = await api("GET", "api/lookup?id=" + id);
+    if (!T.value.trim() && d.title) T.value = d.title.slice(0, 120);
+    if (!D.value.trim() && d.description) {
+      const parts = d.description.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+      let text = parts[0] || ""; if (text.length < 160 && parts[1]) text += "\n\n" + parts[1];
+      D.value = text.length > 700 ? text.slice(0, 700).replace(/\s+\S*$/, "") + "..." : text;
+    }
+    if (!L.value.trim() && d.length && ytId($("#f-youtube").value) === id) L.value = d.length;
+    if (d.year && ytId($("#f-youtube").value) === id) $("#f-year").value = d.year;
+    say("#f-msg", "Filled in from YouTube. Change anything you like.", "good");
+  } catch (x) { say("#f-msg", "Could not get the details from YouTube. Type them in.", "bad"); }
+}
+for (const ev of ["change", "paste"]) {
+  $("#f-youtube").addEventListener(ev, (e) => setTimeout(() => autofill(e.target.value), 50));
+  $("#f-trailer").addEventListener(ev, (e) => setTimeout(() => { if (!$("#f-youtube").value.trim()) autofill(e.target.value); }, 50));
+}
 
 $("#form").onsubmit = async (e) => {
   e.preventDefault();
