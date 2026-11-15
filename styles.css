@@ -320,3 +320,16 @@ a.tile { display: block; }
 .ssr-about h2 { font-size: 19px; font-weight: 500; color: var(--text); margin: 26px 0 10px; }
 
 .row h1 { font-size: clamp(16px, 1.5vw, 21px); font-weight: 500; margin: 0 var(--pad) 12px; }
+
+/* ---------- topics ---------- */
+.topics { margin: 10px var(--pad) 46px; }
+.topics h2 { font-size: clamp(16px, 1.5vw, 21px); font-weight: 500; margin: 0 0 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: 13.5px; color: #dedbd5; transition: border-color .2s, background .2s, color .2s; }
+.chip:hover { border-color: #fff; color: #fff; background: rgba(255, 255, 255, .06); }
+.chip.on { border-color: var(--red-hi); background: rgba(226, 29, 61, .16); color: #fff; }
+.chip i { font-style: normal; font-size: 11px; color: var(--dim); }
+.topic-head { margin: 0 var(--pad) 26px; max-width: 760px; }
+.topic-head h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 4.2vw, 54px); line-height: 1.08; margin: 0 0 12px; }
+.topic-head p:last-child { color: #d9d6d0; font-size: 16px; line-height: 1.6; margin: 0; }
+#m-more .topics { margin: 0 0 24px; }
