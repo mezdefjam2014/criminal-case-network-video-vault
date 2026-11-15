@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 
@@ -21,8 +21,6 @@
   <nav class="links" id="links" aria-label="Sections"></nav>
   <div class="search" id="search">
     <button id="q-open" aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
-    <input id="q" type="search" placeholder="Titles, cases, types" aria-label="Search films" tabindex="-1">
-    <button id="q-clear" aria-label="Clear search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
 </header>
 
@@ -70,6 +68,17 @@
   </div>
 </div>
 
-<script src="app.js?v=8"></script>
+<div class="spot" id="spot" hidden>
+  <div class="spot-box" role="dialog" aria-label="Search films">
+    <div class="spot-bar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="q" type="text" placeholder="Search films" aria-label="Search films" autocomplete="off" spellcheck="false">
+      <kbd>esc</kbd>
+    </div>
+    <div class="spot-list" id="spot-list"></div>
+  </div>
+</div>
+
+<script src="app.js?v=9"></script>
 </body>
 </html>
