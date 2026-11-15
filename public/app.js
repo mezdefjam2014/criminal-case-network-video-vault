@@ -129,7 +129,7 @@ function countPlay(v) {
 function tile(v, rank) {
   const t = el("button", "tile", `<img loading="lazy" decoding="async" width="960" height="540" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
     <span class="cap"><strong>${esc(v.title)}</strong><span>${[v.kind, live(v) ? v.length : when(v.release)].filter(Boolean).map(esc).join(" &middot; ")}</span></span>`);
-  t.onclick = () => open(v);
+  t.onclick = () => open(v, live(v) && /trailer|preview|short/i.test(v.kind || "") ? "film" : undefined);   // a trailer entry starts playing as soon as it is clicked
   return t;
 }
 
@@ -215,7 +215,8 @@ async function watch(v, id, track) {
   await loadApi(); if (!now || now.v !== v) return;
   const from = track && part(v) ? SEEN[v.id].t : 0;
   P = new YT.Player("yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, start: from },
-    events: { onReady: () => { P.setVolume(store.get("vol", 100)); $("#c-vol").value = store.get("vol", 100); paint(); }, onStateChange: (e) => { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
+    events: { onReady: () => { P.setVolume(store.get("vol", 100)); $("#c-vol").value = store.get("vol", 100); P.playVideo(); paint();
+      setTimeout(() => { if (ready() && now && now.v === v && ![1, 3].includes(P.getPlayerState())) { P.mute(); P.playVideo(); } }, 1800); }  /* if the browser refuses to start with sound, start silent so it still plays */, onStateChange: (e) => { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
   clearInterval(timer); let n = 0; let on = 0; timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); if (track && ready() && P.getPlayerState() === 1 && ++on === 60) countPlay(v); }, 500);
 }
 function stop() {
