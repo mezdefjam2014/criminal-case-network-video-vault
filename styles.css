@@ -318,3 +318,5 @@ a.tile { display: block; }
 .ssr-about { padding-top: 110px; } .row.ssr + .ssr-list + .ssr-about, .ssr-list + .ssr-about { padding-top: 0; }
 .ssr-about h1 { font-family: var(--serif); font-size: clamp(28px, 4vw, 44px); color: var(--text); margin: 0 0 8px; }
 .ssr-about h2 { font-size: 19px; font-weight: 500; color: var(--text); margin: 26px 0 10px; }
+
+.row h1 { font-size: clamp(16px, 1.5vw, 21px); font-weight: 500; margin: 0 var(--pad) 12px; }
