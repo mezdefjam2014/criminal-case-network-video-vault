@@ -15,6 +15,7 @@ const DEFAULT_ROWS = ["New Releases", "Documentaries", "Trailers & Previews"];
 
 let PW = sessionStorage.getItem("ccn-office") || "";
 let DATA = { featured: "", rows: [], videos: [] };
+let PLAYS = {};
 let editing = null, picked = null;                           // picked = { tile: Blob, wide: Blob|null, url }
 
 async function api(method, url, body, type) {
@@ -31,6 +32,7 @@ async function enter() {
   sessionStorage.setItem("ccn-office", PW);
   DATA = await fetch(API + "api/videos", { cache: "no-store" }).then((r) => r.json());
   if (!DATA.rows.length) DATA.rows = [...DEFAULT_ROWS];
+  PLAYS = await fetch(API + "api/plays").then((r) => r.json()).catch(() => ({}));
   $("#gate").hidden = true; $("#desk").hidden = false; draw();
 }
 function leave() { PW = ""; sessionStorage.removeItem("ccn-office"); $("#desk").hidden = true; $("#gate").hidden = false; $("#pw").value = ""; }
@@ -52,7 +54,7 @@ function draw() {
     const liveNow = !!ytId(v.youtube), d = document.createElement("div"); d.className = "item";
     const date = v.release && !isNaN(new Date(v.release)) ? new Date(v.release).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
     d.innerHTML = `<img src="${esc(coverOf(v))}" alt=""><div class="what"><strong>${esc(v.title)}</strong>
-      <span>${DATA.featured === v.id ? '<i class="pill feat">Featured</i>' : ""}<i class="pill ${liveNow ? "" : "soon"}">${liveNow ? "Live" : "Coming soon"}</i>${esc([!liveNow && date, ytId(v.trailer) && "has trailer", (v.rows || []).join(", ")].filter(Boolean).join(" · "))}</span></div>
+      <span>${DATA.featured === v.id ? '<i class="pill feat">Pinned at top</i>' : ""}<i class="pill ${liveNow ? "" : "soon"}">${liveNow ? "Live" : "Coming soon"}</i>${esc([!liveNow && date, PLAYS[v.id] && PLAYS[v.id] + " plays in 14 days", v.top && "in top rotation", ytId(v.trailer) && "has trailer", (v.rows || []).join(", ")].filter(Boolean).join(" · "))}</span></div>
       <div class="tools"><button class="btn more icon" data-a="up" title="Move up">&uarr;</button><button class="btn more icon" data-a="down" title="Move down">&darr;</button>
       <button class="btn more" data-a="edit">Edit</button><button class="btn more danger" data-a="del">Remove</button></div>`;
     d.querySelector(".tools").onclick = (e) => { const a = e.target.dataset.a; if (a) act(a, i); };
@@ -122,7 +124,7 @@ function edit(v) {
   $("#f-title").value = v?.title || ""; $("#f-youtube").value = v?.youtube || ""; $("#f-trailer").value = v?.trailer || "";
   $("#f-release").value = localTime(v?.release); $("#f-desc").value = v?.description || ""; $("#f-kind").value = v?.kind || "Documentary";
   $("#f-length").value = v?.length || ""; $("#f-year").value = v?.year || String(new Date().getFullYear());
-  $("#f-featured").checked = v ? DATA.featured === v.id : !DATA.videos.length;
+  $("#f-featured").checked = !!v && DATA.featured === v.id; $("#f-top").checked = !!v?.top;
   $("#f-rows").innerHTML = DATA.rows.map((r) => `<label class="check"><input type="checkbox" value="${esc(r)}" ${(v ? v.rows || [] : [DATA.rows[0]]).includes(r) ? "checked" : ""}> ${esc(r)}</label>`).join("");
   $("#f-prev").src = v ? coverOf(v) : ""; $("#drop-text").hidden = !!(v && coverOf(v)); $("#f-file").value = "";
   say("#f-msg", ""); say("#f-size", "Any size works. It is made smaller automatically and stays sharp. With no cover, the YouTube thumbnail is used.");
@@ -147,7 +149,7 @@ $("#form").onsubmit = async (e) => {
       v.wide = picked.wide ? (await api("PUT", `api/cover/${base}-wide.jpg`, picked.wide, "image/jpeg")).url : "";
     }
     const rel = $("#f-release").value;
-    Object.assign(v, { title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel ? new Date(rel).toISOString() : "", description: $("#f-desc").value.trim(),
+    Object.assign(v, { top: $("#f-top").checked, title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel ? new Date(rel).toISOString() : "", description: $("#f-desc").value.trim(),
       kind: $("#f-kind").value, length: $("#f-length").value.trim(), year: $("#f-year").value.trim(), rows: [...document.querySelectorAll("#f-rows input:checked")].map((c) => c.value) });
     if (!editing) DATA.videos.unshift(v);
     if ($("#f-featured").checked) DATA.featured = v.id; else if (DATA.featured === v.id) DATA.featured = "";

@@ -33,6 +33,7 @@
     <label class="field">Rows on the home page, in order (separate with commas)
       <input id="rows" type="text" placeholder="New Releases, Documentaries, Trailers &amp; Previews">
     </label>
+    <p class="msg" style="margin-bottom:14px">Top of the page: with nothing pinned it rotates on its own, quietly playing trailers and 30-second pieces of films. Tick "Include in the rotation" on the films you want there, or leave all unticked and it uses every film. Pin one film to keep it there.</p>
     <div class="list" id="list"></div>
     <p class="msg" id="msg"></p>
   </section>
@@ -55,7 +56,8 @@
           <label class="field">Year<input id="f-year" placeholder="2026" maxlength="4"></label>
         </div>
         <div class="field">Show in these rows<div class="checks" id="f-rows"></div></div>
-        <label class="check"><input id="f-featured" type="checkbox"> Make this the big featured film at the top</label>
+        <label class="check"><input id="f-top" type="checkbox"> Include in the rotation at the top of the page</label>
+        <label class="check" style="margin-top:10px"><input id="f-featured" type="checkbox"> Pin as the only big film at the top (stops the rotation)</label>
       </div>
       <div class="col">
         <div class="field">Cover

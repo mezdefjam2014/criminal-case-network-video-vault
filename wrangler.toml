@@ -5,3 +5,8 @@ pages_build_output_dir = "public"
 [[kv_namespaces]]
 binding = "VAULT"
 id = "91175d0f2f614a68b782ffd5e7ebb2fb"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ccn-vault"
+database_id = "afa088af-6e71-4b3a-9ca6-a32525bfdb02"
