@@ -67,19 +67,56 @@ function hero(v) {
   if (!v) { h.style.display = "none"; return; }
   const img = el("img", "hero-img"); img.src = wide(v); img.alt = "";
   const copy = el("div", "hero-copy", `<p class="tagline">${live(v) ? "Featured film" : "Coming soon"}</p><h1>${esc(v.title)}</h1><p class="meta">${meta(v)}</p>${soon(v)}<p class="desc">${esc(v.description)}</p>`);
-  buttons(v, copy, true); h.append(img, copy);
+  buttons(v, copy, true);
+  if (SLIDES.length > 1) {
+    const dots = el("div", "dots");
+    SLIDES.forEach((s, i) => { const b = el("button", i === si ? "on" : ""); b.setAttribute("aria-label", "Show " + s.title); b.onclick = () => showSlide(i); dots.append(b); });
+    copy.append(dots);
+  }
+  h.append(img, copy);
+  if (ytId(v.trailer) || ytId(v.youtube)) h.append(el("div", "hero-video", '<div id="hv-yt"></div>'));
 }
 
-function tile(v) {
-  const t = el("button", "tile", `<img loading="lazy" src="${esc(cover(v))}" alt="${esc(v.title)}">${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
+// ---------- the top of the page: one pinned film, or a rotation that quietly plays trailers and pieces of films ----------
+let SLIDES = [], si = 0, HP = null, hTimer = 0, PLAYS = {};
+function slides() {
+  const pin = DATA.videos.find((v) => v.id === DATA.featured); if (pin) return [pin];
+  const top = DATA.videos.filter((v) => v.top);
+  return (top.length ? top : DATA.videos).slice(0, 8);
+}
+function killHero() { clearTimeout(hTimer); try { HP && HP.destroy(); } catch {} HP = null; }
+function showSlide(i) {
+  killHero(); if (!SLIDES.length) return hero(null);
+  si = (i + SLIDES.length) % SLIDES.length; FEAT = SLIDES[si]; hero(FEAT); heroPlay(FEAT);
+}
+function heroPlay(v) {
+  const tr = ytId(v.trailer), id = tr || ytId(v.youtube), next = () => showSlide(si + 1);
+  const still = () => FEAT === v && $("#modal").hidden && document.getElementById("hv-yt");
+  if (!id || matchMedia("(prefers-reduced-motion: reduce)").matches) { if (SLIDES.length > 1) hTimer = setTimeout(next, 9000); return; }
+  hTimer = setTimeout(next, 30000);                           // each one gets about 30 seconds
+  loadApi().then(() => {
+    if (!still()) return;
+    HP = new YT.Player("hv-yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, disablekb: 1 },
+      events: { onReady: (e) => { e.target.mute(); const d = e.target.getDuration(); if (!tr && d > 90) e.target.seekTo(d * (0.15 + Math.random() * 0.6), true); e.target.playVideo(); },
+        onStateChange: (e) => { if (e.data === 1) document.querySelector(".hero-video")?.classList.add("on"); if (e.data === 0) { clearTimeout(hTimer); next(); } } } });
+  });
+}
+function countPlay(v) {
+  const done = store.get("played", {}); if (Date.now() - (done[v.id] || 0) < 6 * 3600e3) return;
+  done[v.id] = Date.now(); store.set("played", done);
+  fetch(API + "api/play?id=" + encodeURIComponent(v.id), { method: "POST" }).catch(() => {});
+}
+
+function tile(v, rank) {
+  const t = el("button", "tile", `<img loading="lazy" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
     <span class="cap"><strong>${esc(v.title)}</strong><span>${[v.kind, live(v) ? v.length : when(v.release)].filter(Boolean).map(esc).join(" &middot; ")}</span></span>`);
   t.onclick = () => open(v);
   return t;
 }
 
-function row(name, list) {
+function row(name, list, ranked) {
   const r = el("section", "row"); r.id = slug(name);
-  const track = el("div", "track"); list.forEach((v) => track.append(tile(v)));
+  const track = el("div", "track"); list.forEach((v, i) => track.append(tile(v, ranked && i + 1)));
   const L = el("button", "arrow l", CHEV("l")), R = el("button", "arrow r", CHEV("r"));
   L.setAttribute("aria-label", "Scroll back"); R.setAttribute("aria-label", "Scroll forward");
   const step = (d) => track.scrollBy({ left: d * track.clientWidth * 0.85, behavior: "smooth" });
@@ -94,7 +131,15 @@ function draw(query = "") {
   const q = query.trim().toLowerCase(), box = $("#rows"); box.innerHTML = "";
   const vids = DATA.videos.filter((v) => !q || [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q));
   if (q) { if (vids.length) box.append(row(`Results for "${query.trim()}"`, vids)); }
-  else [...mine(vids), ...DATA.rows.map((name) => [name, vids.filter((v) => (v.rows || []).includes(name))])].forEach(([name, list]) => { if (list.length) box.append(row(name, list)); });
+  else {
+    const rows = DATA.rows.map((name) => [name, vids.filter((v) => (v.rows || []).includes(name))]).filter((r) => r[1].length);
+    const pop = vids.filter((v) => live(v) && PLAYS[v.id] > 0).sort((a, b) => PLAYS[b.id] - PLAYS[a.id]).slice(0, 10);
+    const tr = rows.findIndex((r) => /trailer/i.test(r[0]));
+    if (pop.length) rows.splice(tr >= 0 ? tr + 1 : Math.min(1, rows.length), 0, ["Popular Right Now", pop, true]);
+    const later = vids.filter((v) => !live(v));
+    if (later.length && !DATA.rows.some((n) => /coming soon/i.test(n))) rows.push(["Coming Soon", later]);
+    [...mine(vids), ...rows].forEach(([name, list, ranked]) => { if (list.length) box.append(row(name, list, ranked)); });
+  }
   $("#hero").hidden = !!q; box.style.marginTop = q ? "110px" : "";
   $("#empty").hidden = vids.length > 0;
 }
@@ -102,7 +147,7 @@ function draw(query = "") {
 // ---------- film window ----------
 // mode: "film" plays the film, "trailer" plays the trailer with sound, nothing = info view (the trailer plays quietly as a preview if there is one).
 function open(v, mode) {
-  stop();
+  stop(); killHero();
   const stage = $("#stage"), film = ytId(v.youtube), tr = ytId(v.trailer);
   if (!mode && !film && tr) mode = "trailer";                // coming soon: clicking it plays the trailer; with no trailer it shows the picture
   $("#m-title").textContent = v.title; $("#m-meta").innerHTML = meta(v); $("#m-desc").textContent = v.description || "";
@@ -113,7 +158,7 @@ function open(v, mode) {
   else stage.innerHTML = `<img src="${esc(wide(v))}" alt=""><div class="shade"></div>`;
   $("#modal").hidden = false; $("#modal").scrollTop = 0; document.body.classList.add("locked"); $("#close").focus();
 }
-function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); hero(FEAT); draw($("#q").value); }
+function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); showSlide(si); draw($("#q").value); }
 let FEAT = null;
 
 // ---------- player: our own controls sit under the picture, never on top of it ----------
@@ -144,7 +189,7 @@ async function watch(v, id, track) {
   const from = track && part(v) ? SEEN[v.id].t : 0;
   P = new YT.Player("yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, start: from },
     events: { onReady: () => { P.setVolume(store.get("vol", 100)); $("#c-vol").value = store.get("vol", 100); paint(); }, onStateChange: (e) => { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
-  clearInterval(timer); let n = 0; timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); }, 500);
+  clearInterval(timer); let n = 0; let on = 0; timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); if (track && ready() && P.getPlayerState() === 1 && ++on === 60) countPlay(v); }, 500);
 }
 function stop() {
   remember(); clearInterval(timer); if (document.fullscreenElement) document.exitFullscreen();
@@ -176,7 +221,8 @@ $("#yr").textContent = new Date().getFullYear();
 const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) throw 0; return r.json(); });
 get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
   DATA = d; DATA.rows = d.rows && d.rows.length ? d.rows : [...new Set(d.videos.flatMap((v) => v.rows || []))];
-  FEAT = d.videos.find((v) => v.id === d.featured) || d.videos[0]; hero(FEAT);
+  SLIDES = slides(); showSlide(0);
   $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("");
   draw();
 }).catch(() => { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; });
+get(API + "api/plays").then((p) => { PLAYS = p || {}; if (DATA.videos.length) draw($("#q").value); }).catch(() => {});
