@@ -77,12 +77,12 @@ function hero(v) {
   }
   h.append(img, copy);
   if (ytId(v.trailer) || ytId(v.youtube)) {                  // the preview window: click it to watch, hover to hold it, button for sound
-    const seen = DONE.has(v.id);                              // already played once this visit: show the cover in the box, not the video again
+    const seen = !AUTOPLAY_TOP || DONE.has(v.id);                              // already played once this visit: show the cover in the box, not the video again
     const box = el("div", "hero-video" + (seen ? " on" : ""), seen
-      ? `<div class="hv-screen"><img src="${esc(wide(v))}" alt=""></div><p class="hv-label"><i></i>${live(v) ? "Watch now" : "Coming soon"}<b>${live(v) ? "Play the film" : "Watch the trailer"}</b></p>`
+      ? `<div class="hv-screen"><img src="${esc(wide(v))}" alt=""></div><p class="hv-label"><i></i>${live(v) ? "Watch now" : "Coming soon"}<b>${ytId(v.trailer) ? "Watch the trailer" : "Play the film"}</b></p>`
       : `<div class="hv-screen"><div id="hv-yt"></div></div><p class="hv-label"><i></i>Now playing<b>${ytId(v.trailer) ? "Trailer" : "From the film"}</b><button class="hv-sound" aria-label="Sound on or off" title="Sound on or off">${I.off}</button></p>`);
-    const later = () => { clearTimeout(hTimer); if (DONE.has(v.id)) { if (SLIDES.length > 1) hTimer = setTimeout(() => showSlide(si + 1), 6000); return; } if (!HP || !HP.isMuted || HP.isMuted()) hTimer = setTimeout(() => { DONE.add(v.id); toCover(v); }, 60000); };
-    box.title = "Click to watch"; box.onclick = () => open(v, live(v) ? "film" : undefined);
+    const later = () => { clearTimeout(hTimer); if (seen || DONE.has(v.id)) { if (SLIDES.length > 1) hTimer = setTimeout(() => showSlide(si + 1), 6000); return; } if (!HP || !HP.isMuted || HP.isMuted()) hTimer = setTimeout(() => { DONE.add(v.id); toCover(v); }, 60000); };
+    box.title = "Click to watch"; box.onclick = () => open(v, ytId(v.trailer) ? "trailer" : live(v) ? "film" : undefined);   // clicking the picture pops it open and plays the trailer if there is one
     box.onmouseenter = () => clearTimeout(hTimer); box.onmouseleave = later;
     (box.querySelector(".hv-sound") || {}).onclick = (e) => {
       e.stopPropagation(); if (!HP || !HP.isMuted) return;
@@ -94,6 +94,7 @@ function hero(v) {
 
 // ---------- the top of the page: one pinned film, or a rotation that quietly plays trailers and pieces of films ----------
 let SLIDES = [], si = 0, HP = null, hTimer = 0, PLAYS = {};
+const AUTOPLAY_TOP = false;                                 // the top box shows the picture only; a video plays when the viewer clicks (no silent plays counted on YouTube)
 const DONE = new Set();                                     // films whose top video has already played once on this visit
 function slides() {
   const pin = DATA.videos.find((v) => v.id === DATA.featured); if (pin) return [pin];
@@ -129,7 +130,7 @@ function toCover(v) {
 function heroPlay(v) {
   const tr = ytId(v.trailer), id = tr || ytId(v.youtube), move = () => showSlide(si + 1), next = () => { DONE.add(v.id); toCover(v); };   // next = this one has had its one play
   const still = () => FEAT === v && $("#modal").hidden && document.getElementById("hv-yt");
-  if (!id || LITE || DONE.has(v.id)) { if (SLIDES.length > 1) hTimer = setTimeout(move, 9000); return; }
+  if (!AUTOPLAY_TOP || !id || LITE || DONE.has(v.id)) { if (SLIDES.length > 1) hTimer = setTimeout(move, 9000); return; }
   hTimer = setTimeout(next, tr ? 180000 : 30000);             // a trailer plays through once (3 minutes at most); a piece of a film gets about 30 seconds
   whenCalm(() => loadApi().then(() => {
     if (!still()) return;
@@ -316,3 +317,5 @@ get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0
   store.set("films", d); if (!shown || ($("#modal").hidden && SP.hidden)) start(d); shown = fresh;
 }).catch(() => { if (!shown) { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; } });
 get(API + "api/plays").then((p) => { PLAYS = p || {}; if (DATA.videos.length) draw($("#q").value); }).catch(() => {});
+// Some YouTube videos have no large thumbnail and YouTube sends a grey placeholder; swap in the standard one when that happens.
+document.addEventListener("load", (e) => { const i = e.target; if (i.tagName === "IMG" && /maxresdefault/.test(i.src) && i.naturalWidth <= 120) i.src = i.src.replace("maxresdefault", "hqdefault"); }, true);
