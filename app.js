@@ -397,9 +397,10 @@ function start(d) {
   if (want) { const v = DATA.videos.find((x) => x.id === decodeURIComponent(want)); if (v) { window.OPEN_FILM = null; if (location.hash.startsWith("#film=")) history.replaceState(null, "", location.pathname); open(v); } }
 }
 // Speed: draw the film list this browser saw last time straight away, then swap in the fresh one only if something changed.
-let shown = ""; const snap = store.get("films", null);
-if (snap && snap.videos && snap.videos.length) { shown = JSON.stringify(snap); start(snap); }
-get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
+let shown = ""; const snap = store.get("films", null), boot = window.FILMS;
+if (boot && boot.videos && boot.videos.length) { shown = JSON.stringify(boot); store.set("films", boot); start(boot); }     // the list arrived inside the page: nothing to wait for
+else if (snap && snap.videos && snap.videos.length) { shown = JSON.stringify(snap); start(snap); }
+if (!(boot && boot.videos && boot.videos.length)) get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
   const fresh = JSON.stringify(d); if (fresh === shown) return;
   store.set("films", d); if (!shown || ($("#modal").hidden && SP.hidden)) start(d); else PENDING = d; shown = fresh;   // a film is open: swap the list in when it closes
 }).catch(() => { if (!shown) { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; } });
