@@ -7,6 +7,9 @@ function ytId(link) {
   const m = s.match(/(?:youtu\.be\/|[?&]v=|\/(?:embed|shorts|live)\/)([\w-]{11})/);
   return m ? m[1] : "";
 }
+// Films, covers and the back office live on Cloudflare. On the Cloudflare address (or this PC) they are next door; anywhere else, ask Cloudflare.
+const API = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname) ? "" : "https://criminal-case-network-video-vault.pages.dev/";
+const at = (u) => (u && String(u).startsWith("api/") ? API + u : u || "");
 const say = (id, text, kind = "") => { const e = $(id); e.textContent = text; e.className = "msg " + kind; };
 const DEFAULT_ROWS = ["New Releases", "Documentaries", "Trailers & Previews"];
 
@@ -15,7 +18,7 @@ let DATA = { featured: "", rows: [], videos: [] };
 let editing = null, picked = null;                           // picked = { tile: Blob, wide: Blob|null, url }
 
 async function api(method, url, body, type) {
-  const r = await fetch(url, { method, body, headers: { authorization: "Bearer " + PW, ...(type ? { "content-type": type } : {}) } });
+  const r = await fetch(API + url, { method, body, headers: { authorization: "Bearer " + PW, ...(type ? { "content-type": type } : {}) } });
   const d = await r.json().catch(() => ({}));
   if (r.status === 401) { leave(); throw new Error("Wrong password."); }
   if (!r.ok) throw new Error(d.error || "Cloudflare did not accept that (" + r.status + ").");
@@ -26,7 +29,7 @@ async function api(method, url, body, type) {
 async function enter() {
   await api("POST", "api/login");
   sessionStorage.setItem("ccn-office", PW);
-  DATA = await fetch("api/videos", { cache: "no-store" }).then((r) => r.json());
+  DATA = await fetch(API + "api/videos", { cache: "no-store" }).then((r) => r.json());
   if (!DATA.rows.length) DATA.rows = [...DEFAULT_ROWS];
   $("#gate").hidden = true; $("#desk").hidden = false; draw();
 }
@@ -37,7 +40,7 @@ if (PW) enter().catch(() => {});
 
 // ---------- film list ----------
 const save = () => api("PUT", "api/videos", JSON.stringify(DATA), "application/json");
-const coverOf = (v) => v.cover || (ytId(v.youtube) || ytId(v.trailer) ? `https://i.ytimg.com/vi/${ytId(v.youtube) || ytId(v.trailer)}/hqdefault.jpg` : "");
+const coverOf = (v) => at(v.cover) || (ytId(v.youtube) || ytId(v.trailer) ? `https://i.ytimg.com/vi/${ytId(v.youtube) || ytId(v.trailer)}/hqdefault.jpg` : "");
 const stored = (u) => (String(u || "").match(/^api\/cover\/([a-z0-9-]+\.jpg)$/) || [])[1];
 const drop = (u) => stored(u) ? api("DELETE", "api/cover/" + stored(u)).catch(() => {}) : null;
 
