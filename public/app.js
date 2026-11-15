@@ -37,13 +37,29 @@ setInterval(() => document.querySelectorAll("[data-release]").forEach((e) => { e
 
 let DATA = { videos: [], rows: [] };
 
+// ---------- saved in this browser: My List and where you stopped watching ----------
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem("ccn-" + k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem("ccn-" + k, JSON.stringify(v)); } catch {} } };
+let LIST = store.get("list", []), SEEN = store.get("seen", {});            // SEEN[id] = { t: seconds watched, d: length, at: when }
+const PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>';
+const part = (v) => { const s = SEEN[v.id]; return s && s.d > 0 && s.t > 10 && s.t < s.d - 20 ? s.t / s.d : 0; };
+function listBtn(v) {
+  const b = el("button", "btn round"), show = () => { const on = LIST.includes(v.id); b.innerHTML = on ? TICK : PLUS; b.title = on ? "Remove from My List" : "Add to My List"; b.setAttribute("aria-label", b.title); b.classList.toggle("on", on); };
+  b.onclick = () => { LIST = LIST.includes(v.id) ? LIST.filter((i) => i !== v.id) : [v.id, ...LIST]; store.set("list", LIST); show(); draw($("#q").value); };
+  show(); return b;
+}
+const mine = (vids) => [
+  ["Continue Watching", vids.filter((v) => live(v) && part(v)).sort((a, b) => SEEN[b.id].at - SEEN[a.id].at)],
+  ["My List", LIST.map((id) => vids.find((v) => v.id === id)).filter(Boolean)],
+];
+
 function buttons(v, box, big) {
   const a = el("div", "actions");
-  if (live(v)) { const b = el("button", "btn play", PLAY + "Play"); b.onclick = () => open(v, "film"); a.append(b); }
+  if (live(v)) { const b = el("button", "btn play", PLAY + (part(v) ? "Resume" : "Play")); b.onclick = () => open(v, "film"); a.append(b); }
   if (ytId(v.trailer)) { const b = el("button", "btn " + (live(v) ? "more" : "play"), PLAY + "Watch trailer"); b.onclick = () => open(v, "trailer"); a.append(b); }
   if (!live(v) && !ytId(v.trailer)) { const b = el("button", "btn play", "Coming soon"); b.disabled = true; a.append(b); }
   if (big) { const b = el("button", "btn more", INFO + "More info"); b.onclick = () => open(v); a.append(b); }
-  box.append(a);
+  a.append(listBtn(v)); box.append(a);
 }
 
 function hero(v) {
@@ -55,7 +71,7 @@ function hero(v) {
 }
 
 function tile(v) {
-  const t = el("button", "tile", `<img loading="lazy" src="${esc(cover(v))}" alt="${esc(v.title)}">${live(v) ? "" : '<span class="flag">Coming soon</span>'}
+  const t = el("button", "tile", `<img loading="lazy" src="${esc(cover(v))}" alt="${esc(v.title)}">${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
     <span class="cap"><strong>${esc(v.title)}</strong><span>${[v.kind, live(v) ? v.length : when(v.release)].filter(Boolean).map(esc).join(" &middot; ")}</span></span>`);
   t.onclick = () => open(v);
   return t;
@@ -78,7 +94,7 @@ function draw(query = "") {
   const q = query.trim().toLowerCase(), box = $("#rows"); box.innerHTML = "";
   const vids = DATA.videos.filter((v) => !q || [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q));
   if (q) { if (vids.length) box.append(row(`Results for "${query.trim()}"`, vids)); }
-  else DATA.rows.forEach((name) => { const list = vids.filter((v) => (v.rows || []).includes(name)); if (list.length) box.append(row(name, list)); });
+  else [...mine(vids), ...DATA.rows.map((name) => [name, vids.filter((v) => (v.rows || []).includes(name))])].forEach(([name, list]) => { if (list.length) box.append(row(name, list)); });
   $("#hero").hidden = !!q; box.style.marginTop = q ? "110px" : "";
   $("#empty").hidden = vids.length > 0;
 }
@@ -86,16 +102,67 @@ function draw(query = "") {
 // ---------- film window ----------
 // mode: "film" plays the film, "trailer" plays the trailer with sound, nothing = info view (the trailer plays quietly as a preview if there is one).
 function open(v, mode) {
+  stop();
   const stage = $("#stage"), film = ytId(v.youtube), tr = ytId(v.trailer);
   $("#m-title").textContent = v.title; $("#m-meta").innerHTML = meta(v); $("#m-desc").textContent = v.description || "";
   const info = $("#m-extra"); info.innerHTML = soon(v); buttons(v, info, false);
-  if (mode === "film" && film) stage.innerHTML = embed(film);
-  else if (mode === "trailer" && tr) stage.innerHTML = embed(tr);
+  if (mode === "film" && film) watch(v, film, true);
+  else if (mode === "trailer" && tr) watch(v, tr, false);
   else if (tr) stage.innerHTML = embed(tr, "&mute=1");
   else stage.innerHTML = `<img src="${esc(wide(v))}" alt=""><div class="shade"></div>`;
   $("#modal").hidden = false; $("#modal").scrollTop = 0; document.body.classList.add("locked"); $("#close").focus();
 }
-function shut() { $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); }
+function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); hero(FEAT); draw($("#q").value); }
+let FEAT = null;
+
+// ---------- player: our own controls sit under the picture, never on top of it ----------
+const I = { play: PLAY, pause: '<svg viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>',
+  vol: '<svg viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6l-5 4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>', off: '<svg viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6l-5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>' };
+let P = null, timer = 0, ytApi, now = null;                 // now = { v, track }
+const clock = (s) => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s % 60).padStart(2, "0"); };
+const loadApi = () => ytApi || (ytApi = new Promise((ok) => { window.onYouTubeIframeAPIReady = ok; const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; document.head.append(s); }));
+const ready = () => P && typeof P.getCurrentTime === "function";
+function remember() {
+  if (!now || !now.track || !ready()) return;
+  const t = P.getCurrentTime(), d = P.getDuration(); if (!d) return;
+  if (t > d - 20) delete SEEN[now.v.id]; else SEEN[now.v.id] = { t: Math.floor(t), d: Math.floor(d), at: Date.now() };
+  store.set("seen", SEEN);
+}
+function paint() {
+  if (!ready()) return;
+  const t = P.getCurrentTime(), d = P.getDuration() || 0, st = P.getPlayerState();
+  if (!$("#c-seek").matches(":active")) $("#c-seek").value = d ? Math.round((t / d) * 1000) : 0;
+  $("#c-seek").style.setProperty("--p", (d ? (t / d) * 100 : 0) + "%");
+  $("#c-time").textContent = clock(t) + " / " + clock(d);
+  $("#c-play").innerHTML = st === 1 || st === 3 ? I.pause : I.play;
+  $("#c-mute").innerHTML = P.isMuted() || P.getVolume() === 0 ? I.off : I.vol;
+}
+async function watch(v, id, track) {
+  now = { v, track }; $("#stage").innerHTML = '<div id="yt"></div>'; $("#ctrl").hidden = false; $("#c-speed").value = "1";
+  await loadApi(); if (!now || now.v !== v) return;
+  const from = track && part(v) ? SEEN[v.id].t : 0;
+  P = new YT.Player("yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, start: from },
+    events: { onReady: () => { P.setVolume(store.get("vol", 100)); $("#c-vol").value = store.get("vol", 100); paint(); }, onStateChange: (e) => { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
+  clearInterval(timer); let n = 0; timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); }, 500);
+}
+function stop() {
+  remember(); clearInterval(timer); if (document.fullscreenElement) document.exitFullscreen();
+  try { P && P.destroy(); } catch {} P = null; now = null; $("#ctrl").hidden = true;
+}
+const toggle = () => ready() && (P.getPlayerState() === 1 ? P.pauseVideo() : P.playVideo());
+const jump = (s) => ready() && P.seekTo(Math.max(0, P.getCurrentTime() + s), true);
+const mute = () => ready() && (P.isMuted() ? P.unMute() : P.mute());
+const full = () => document.fullscreenElement ? document.exitFullscreen() : $("#theater").requestFullscreen?.();
+$("#c-play").onclick = toggle; $("#c-back").onclick = () => jump(-10); $("#c-fwd").onclick = () => jump(10); $("#c-mute").onclick = mute; $("#c-full").onclick = full;
+$("#c-seek").oninput = (e) => ready() && P.seekTo((e.target.value / 1000) * P.getDuration(), true);
+$("#c-vol").oninput = (e) => { if (!ready()) return; P.unMute(); P.setVolume(+e.target.value); store.set("vol", +e.target.value); };
+$("#c-speed").onchange = (e) => ready() && P.setPlaybackRate(+e.target.value);
+addEventListener("keydown", (e) => {
+  if (!ready() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range") return;
+  const k = { " ": toggle, k: toggle, ArrowLeft: () => jump(-10), ArrowRight: () => jump(10), j: () => jump(-10), l: () => jump(10), m: mute, f: full }[e.key];
+  if (k) { e.preventDefault(); k(); }
+});
+addEventListener("pagehide", remember);
 $("#close").onclick = shut;
 $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") shut(); });
 addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidden) shut(); });
@@ -108,7 +175,7 @@ $("#yr").textContent = new Date().getFullYear();
 const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) throw 0; return r.json(); });
 get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
   DATA = d; DATA.rows = d.rows && d.rows.length ? d.rows : [...new Set(d.videos.flatMap((v) => v.rows || []))];
-  hero(d.videos.find((v) => v.id === d.featured) || d.videos[0]);
+  FEAT = d.videos.find((v) => v.id === d.featured) || d.videos[0]; hero(FEAT);
   $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("");
   draw();
 }).catch(() => { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; });
