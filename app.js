@@ -36,6 +36,7 @@ const soon = (v) => live(v) ? "" : `<div class="soon"><span class="soon-tag">Com
 setInterval(() => document.querySelectorAll("[data-release]").forEach((e) => { e.textContent = left(e.dataset.release) || "Any moment now"; }), 1000);
 
 let DATA = { videos: [], rows: [] };
+let VIEW = "home";                                          // "home" or "mine" (the My List tab)
 
 // ---------- saved in this browser: My List and where you stopped watching ----------
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem("ccn-" + k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem("ccn-" + k, JSON.stringify(v)); } catch {} } };
@@ -87,6 +88,7 @@ function slides() {
 function killHero() { clearTimeout(hTimer); try { HP && HP.destroy(); } catch {} HP = null; }
 function showSlide(i) {
   killHero(); if (!SLIDES.length) return hero(null);
+  if (VIEW === "mine") return;
   si = (i + SLIDES.length) % SLIDES.length; FEAT = SLIDES[si]; hero(FEAT); heroPlay(FEAT);
 }
 function heroPlay(v) {
@@ -130,7 +132,11 @@ function row(name, list, ranked) {
 function draw(query = "") {
   const q = query.trim().toLowerCase(), box = $("#rows"); box.innerHTML = "";
   const vids = DATA.videos.filter((v) => !q || [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q));
-  if (q) { if (vids.length) { const r = row(`Results for "${query.trim()}"`, vids); r.classList.add("grid"); box.append(r); } }
+  if (VIEW === "mine") {                                      // the My List tab: saved films and films you started, out of the way of the home page
+    mine(vids).forEach(([name, list]) => { if (list.length) { const r = row(name, list); r.classList.add("grid"); box.append(r); } });
+    if (!box.children.length) box.innerHTML = '<p class="empty">Nothing here yet. Press + on a film to save it to My List. Films you start watching show up here too.</p>';
+  }
+  else if (q) { if (vids.length) { const r = row(`Results for "${query.trim()}"`, vids); r.classList.add("grid"); box.append(r); } }
   else {
     const rows = DATA.rows.map((name) => [name, vids.filter((v) => (v.rows || []).includes(name))]).filter((r) => r[1].length);
     const pop = vids.filter((v) => live(v) && PLAYS[v.id] > 0).sort((a, b) => PLAYS[b.id] - PLAYS[a.id]).slice(0, 10);
@@ -138,9 +144,9 @@ function draw(query = "") {
     if (pop.length) rows.splice(tr >= 0 ? tr + 1 : Math.min(1, rows.length), 0, ["Popular Right Now", pop, true]);
     const later = vids.filter((v) => !live(v));
     if (later.length && !DATA.rows.some((n) => /coming soon/i.test(n))) rows.push(["Coming Soon", later]);
-    [...mine(vids), ...rows].forEach(([name, list, ranked]) => { if (list.length) box.append(row(name, list, ranked)); });
+    rows.forEach(([name, list, ranked]) => { if (list.length) box.append(row(name, list, ranked)); });
   }
-  $("#hero").hidden = !!q; box.style.marginTop = q ? "110px" : "";
+  const off = !!q || VIEW === "mine"; $("#hero").hidden = off; box.style.marginTop = off ? "110px" : "";
   $("#empty").hidden = vids.length > 0;
 }
 
@@ -215,6 +221,14 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidd
 
 // ---------- start ----------
 addEventListener("scroll", () => $("#nav").classList.toggle("solid", scrollY > 40), { passive: true });
+// The My List tab in the top bar.
+function go(view) {
+  VIEW = view; $("#mine-tab").classList.toggle("on", view === "mine"); draw("");
+  if (view === "mine") { killHero(); scrollTo({ top: 0 }); } else showSlide(si);
+}
+$("#mine-tab").onclick = () => go(VIEW === "mine" ? "home" : "mine");
+$("#links").addEventListener("click", () => { if (VIEW === "mine") go("home"); });
+
 // Search: a bar pops up in the middle of the screen with matching films listed under it.
 const SP = $("#spot"), Q = $("#q"), SL = $("#spot-list");
 let found = [], sel = 0;
