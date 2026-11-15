@@ -9,7 +9,7 @@ export async function onRequestGet({ request, env }) {
   if (!(await allowed(request, env))) return denied();
   const id = new URL(request.url).searchParams.get("id") || "";
   if (!/^[\w-]{11}$/.test(id)) return json({ error: "That is not a YouTube link." }, 400);
-  const out = { title: "", description: "", length: "", year: "", needsKey: !env.YT_API_KEY, keyProblem: "" };
+  const out = { title: "", description: "", length: "", year: "", published: "", needsKey: !env.YT_API_KEY, keyProblem: "" };
 
   if (env.YT_API_KEY) {
     try {
@@ -19,7 +19,7 @@ export async function onRequestGet({ request, env }) {
       if (it) {
         out.title = it.snippet.title || "";
         out.description = it.snippet.description || "";
-        out.year = (it.snippet.publishedAt || "").slice(0, 4);
+        out.year = (it.snippet.publishedAt || "").slice(0, 4); out.published = it.snippet.publishedAt || "";
         const m = (it.contentDetails.duration || "").match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
         if (m) {
           const s = (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
@@ -42,6 +42,7 @@ export async function onRequestGet({ request, env }) {
         out.description = pick(/<media:description>([\s\S]*?)<\/media:description>/);
         if (!out.title) out.title = pick(/<media:title>([\s\S]*?)<\/media:title>/);
         if (!out.year) out.year = pick(/<published>(\d{4})/);
+        if (!out.published) out.published = pick(/<published>([^<]+)<\/published>/);
         out.fromFeed = true; out.needsKey = false; out.keyProblem = "";
         break;
       } catch {}

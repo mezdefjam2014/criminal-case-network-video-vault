@@ -141,15 +141,30 @@ const closeEditor = () => { $("#editor").hidden = true; };
 $("#add").onclick = () => edit(null); $("#cancel").onclick = closeEditor; $("#cancel2").onclick = closeEditor;
 
 // Paste a YouTube link and the empty boxes fill themselves in from YouTube. Anything you already typed is left alone.
-let asked = "";
+let asked = "", got = { id: "", published: "" };
+// YouTube's player knows how long the video is. A small player off to the side is asked, then removed.
+let ytReady;
+const ytApi = () => ytReady || (ytReady = new Promise((ok) => { window.onYouTubeIframeAPIReady = ok; const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; document.head.append(s); }));
+async function lengthOf(id) {
+  await ytApi();
+  return new Promise((done) => {
+    const holder = document.createElement("div"); holder.style.cssText = "position:fixed;left:-9999px;top:0;width:320px;height:180px"; const spot = document.createElement("div"); holder.append(spot); document.body.append(holder);
+    let tries = 0, p; const end = (s) => { try { p.destroy(); } catch {} holder.remove(); done(s); };
+    p = new YT.Player(spot, { videoId: id, playerVars: { autoplay: 0, controls: 0 }, events: { onError: () => end(0), onReady: () => {
+      const t = setInterval(() => { const s = p.getDuration ? p.getDuration() : 0; if (s > 0 || ++tries > 24) { clearInterval(t); end(s); } }, 250); } } });
+  });
+}
+const mins = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} hr ${Math.round((s % 3600) / 60)} min` : `${Math.max(1, Math.round(s / 60))} min`);
 async function autofill(link) {
   const id = ytId(link); if (!id || id === asked) return;
   if (!picked && !editing?.cover) { $("#f-prev").src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`; $("#drop-text").hidden = true; }
   const T = $("#f-title"), D = $("#f-desc"), L = $("#f-length");
-  if (T.value.trim() && D.value.trim() && L.value.trim()) return;
+  if (!L.value.trim() && ytId($("#f-youtube").value) === id) lengthOf(id).then((s) => { if (s > 0 && !L.value.trim() && ytId($("#f-youtube").value) === id) L.value = mins(s); }).catch(() => {});
+  if (T.value.trim() && D.value.trim() && got.id === id) return;
   asked = id; say("#f-msg", "Getting the title and description from YouTube...");
   try {
     const d = await api("GET", "api/lookup?id=" + id);
+    got = { id, published: d.published || "" };
     if (!T.value.trim() && d.title) T.value = d.title.slice(0, 120);
     if (!D.value.trim() && d.description) {
       const parts = d.description.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
@@ -186,7 +201,7 @@ $("#form").onsubmit = async (e) => {
     }
     const rel = $("#f-release").value;
     if (yt && !ytId(v.youtube)) v.liveAt = Date.now();      // the moment it goes live: drives the NEW badge for two weeks
-    v.updated = Date.now();
+    v.updated = Date.now(); if (got.id && got.id === ytId(yt) && got.published) v.published = got.published;
     Object.assign(v, { top: $("#f-top").checked, title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel || "", description: $("#f-desc").value.trim(),
       kind: $("#f-kind").value, length: $("#f-length").value.trim(), year: $("#f-year").value.trim(), rows: [...document.querySelectorAll("#f-rows input:checked")].map((c) => c.value) });
     if (!editing) DATA.videos.unshift(v);

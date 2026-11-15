@@ -15,9 +15,9 @@ export async function onRequestGet({ params, env, request }) {
     ...social({ type: film ? "video.other" : "website", title: v.title, description: brief(about, 200), url: self, image }),
     ld({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [
       { "@type": "ListItem", position: 1, name: "Criminal Case Network", item: root + "/" }, { "@type": "ListItem", position: 2, name: v.title, item: self }] }),
-    film ? ld({ "@context": "https://schema.org", "@type": "VideoObject", name: v.title, description: about, thumbnailUrl: [image], uploadDate: stamp({ ...v, updated: 0 }),
+    film ? ld({ "@context": "https://schema.org", "@type": "VideoObject", name: v.title, description: about, thumbnailUrl: [image], uploadDate: v.published || stamp({ ...v, updated: 0 }),
       ...(isoLength(v.length) ? { duration: isoLength(v.length) } : {}), embedUrl: `https://www.youtube.com/embed/${film}`, contentUrl: `https://www.youtube.com/watch?v=${film}`,
-      genre: ["True crime", kind], inLanguage: "en", isFamilyFriendly: false, publisher: { "@type": "Organization", name: "Criminal Case Network", url: root + "/", sameAs: [CHANNEL] } }) : "",
+      genre: ["True crime", kind], inLanguage: "en", isFamilyFriendly: false, publisher: { "@type": "Organization", name: "Criminal Case Network", url: root + "/", logo: { "@type": "ImageObject", url: root + "/icon-512.png" }, sameAs: [CHANNEL] } }) : "",
     inline("FILMS", { featured: d.featured, rows: d.rows, videos: d.videos }),
     inline("OPEN_FILM", v.id),
   ];

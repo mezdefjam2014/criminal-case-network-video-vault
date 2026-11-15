@@ -6,10 +6,11 @@ export async function onRequestGet({ env, request }) {
   const url = new URL(request.url), root = base(url), d = await films(env), list = d.videos;
   const lead = list.find((v) => v.id === d.featured) || list[0];
   const head = [
-    ...social({ type: "website", title: SITE_TITLE, description: SITE_ABOUT, url: root + "/", image: lead ? coverOf(lead, root, true) : "" }),
+    ...social({ type: "website", title: SITE_TITLE, description: SITE_ABOUT, url: root + "/", image: root + "/share.jpg" }),
+    `<link rel="alternate" type="application/atom+xml" title="Criminal Case Network films" href="${root}/feed.xml">`,
     d.google ? `<meta name="google-site-verification" content="${esc(d.google)}">` : "",
     ld({ "@context": "https://schema.org", "@type": "WebSite", name: "Criminal Case Network", alternateName: ["CCN", "Criminal Case Network Video Vault"], url: root + "/", description: SITE_ABOUT, inLanguage: "en" }),
-    ld({ "@context": "https://schema.org", "@type": "Organization", name: "Criminal Case Network", url: root + "/", description: SITE_ABOUT, sameAs: [CHANNEL] }),
+    ld({ "@context": "https://schema.org", "@type": "Organization", name: "Criminal Case Network", url: root + "/", description: SITE_ABOUT, logo: root + "/icon-512.png", image: root + "/share.jpg", sameAs: [CHANNEL] }),
     list.length ? ld({ "@context": "https://schema.org", "@type": "ItemList", name: "True crime documentaries from Criminal Case Network",
       itemListElement: list.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: filmUrl(root, v), name: v.title })) }) : "",
     inline("FILMS", { featured: d.featured, rows: d.rows, videos: d.videos }),

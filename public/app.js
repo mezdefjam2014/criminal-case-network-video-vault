@@ -171,9 +171,10 @@ function countPlay(v) {
 }
 
 function tile(v, rank) {
-  const t = el("button", "tile", `<img loading="lazy" decoding="async" width="960" height="540" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? (isNew(v) ? '<span class="flag new">New</span>' : "") : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
+  const t = el("a", "tile", `<img loading="lazy" decoding="async" width="960" height="540" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? (isNew(v) ? '<span class="flag new">New</span>' : "") : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
     <span class="cap"><strong>${esc(v.title)}</strong><span>${[v.kind, live(v) ? v.length : when(v.release)].filter(Boolean).map(esc).join(" &middot; ")}</span></span>`);
-  t.onclick = () => open(v, live(v) && /trailer|preview|short/i.test(v.kind || "") ? "film" : undefined);   // a trailer entry starts playing as soon as it is clicked
+  t.href = `${ROUTED ? "" : SITE}/film/${encodeURIComponent(v.id)}`;                    // a real link: search engines follow it, and it can be opened in a new tab
+  t.onclick = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); open(v, live(v) && /trailer|preview|short/i.test(v.kind || "") ? "film" : undefined); };   // a trailer entry starts playing as soon as it is clicked
   return t;
 }
 
@@ -218,7 +219,20 @@ function draw(query = "") {
 
 // ---------- film window ----------
 // mode: "film" plays the film, "trailer" plays the trailer with sound, nothing = info view (the trailer plays quietly as a preview if there is one).
+// Each open film has its own address, so the back button closes it and the address bar can be copied.
+const ROUTED = API === "", HOME_TITLE = document.title;
+function route(v) {
+  if (!ROUTED) return;
+  const path = v ? "/film/" + encodeURIComponent(v.id) : "/";
+  if (location.pathname !== path) history.pushState(v ? { film: v.id } : null, "", path);
+  document.title = v ? `${v.title} | Criminal Case Network` : HOME_TITLE;
+}
+addEventListener("popstate", () => {
+  const m = location.pathname.match(/^\/film\/(.+)/), v = m && DATA.videos.find((x) => x.id === decodeURIComponent(m[1]));
+  if (v) open(v); else if (!$("#modal").hidden) shut();
+});
 function open(v, mode) {
+  route(v);
   const film = ytId(v.youtube), tr = ytId(v.trailer);
   const pre = mode === "film" && PRE && PRE.v === v && PRE.ok ? PRE : null;   // the film is already loaded and waiting behind the picture
   stop(pre); if (HP && FEAT) DONE.add(FEAT.id); killHero();
@@ -234,7 +248,7 @@ function open(v, mode) {
   }
   $("#modal").hidden = false; $("#modal").scrollTop = 0; document.body.classList.add("locked"); $("#close").focus();
 }
-function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); if (PENDING) { const d = PENDING; PENDING = null; return start(d); } showSlide(si); draw($("#q").value); }
+function shut() { route(null); stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); if (PENDING) { const d = PENDING; PENDING = null; return start(d); } showSlide(si); draw($("#q").value); }
 let PENDING = null;
 let FEAT = null;
 
