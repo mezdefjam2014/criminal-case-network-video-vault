@@ -154,7 +154,7 @@ async function autofill(link) {
     if (d.year && ytId($("#f-youtube").value) === id) $("#f-year").value = d.year;
     if (d.description) say("#f-msg", "Filled in from YouTube. Change anything you like.", "good");
     else if (d.keyProblem) say("#f-msg", "Title filled in. The description was refused by YouTube: " + d.keyProblem, "bad");
-    else if (d.needsKey) say("#f-msg", "Title filled in. The description needs the one-time YouTube key to be set in Cloudflare.", "bad");
+    else if (d.needsKey) say("#f-msg", "Title filled in. The description could not be read: this video is not among the 15 newest public videos on the Criminal Case Network channel.", "bad");
     else say("#f-msg", "Title filled in. This video has no description on YouTube.", "good");
   } catch (x) { say("#f-msg", "Could not get the details from YouTube. Type them in.", "bad"); }
 }
