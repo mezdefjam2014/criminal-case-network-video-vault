@@ -16,7 +16,8 @@ function ytId(link) {
   const m = s.match(/(?:youtu\.be\/|[?&]v=|\/(?:embed|shorts|live)\/)([\w-]{11})/);
   return m ? m[1] : "";
 }
-const live = (v) => !!ytId(v.youtube);                       // a film is live as soon as it has its YouTube link
+const live = (v) => !!ytId(v.youtube);
+const isNew = (v) => live(v) && !!v.liveAt && Date.now() - v.liveAt < 14 * 864e5;   // went live in the last two weeks                       // a film is live as soon as it has its YouTube link
 const anyId = (v) => ytId(v.youtube) || ytId(v.trailer);
 const cover = (v) => at(v.cover) || (anyId(v) ? `https://i.ytimg.com/vi/${anyId(v)}/hqdefault.jpg` : "");
 const wide = (v) => at(v.wide) || at(v.cover) || (anyId(v) ? `https://i.ytimg.com/vi/${anyId(v)}/maxresdefault.jpg` : "");
@@ -50,6 +51,30 @@ function listBtn(v) {
   b.onclick = () => { LIST = LIST.includes(v.id) ? LIST.filter((i) => i !== v.id) : [v.id, ...LIST]; store.set("list", LIST); show(); draw($("#q").value); };
   show(); return b;
 }
+// Share: every film has its own link. On a phone it opens the share sheet; elsewhere it copies the link.
+const SITE = API === "" ? location.origin : "https://criminal-case-network-video-vault.pages.dev";
+const SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 7.500 12 3.500l4 4M5 12v6.500A1.500 1.500 0 0 0 6.500 20h11a1.500 1.500 0 0 0 1.500-1.500V12"/></svg>';
+function toast(text) {
+  let t = document.getElementById("toast"); if (!t) { t = el("div", "toast"); t.id = "toast"; document.body.append(t); }
+  t.textContent = text; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 2200);
+}
+function shareBtn(v) {
+  const b = el("button", "btn round", SHARE), link = `${SITE}/film/${encodeURIComponent(v.id)}`;
+  b.title = "Share this film"; b.setAttribute("aria-label", b.title);
+  b.onclick = async () => {
+    try { if (navigator.share && matchMedia("(pointer: coarse)").matches) return await navigator.share({ title: v.title, url: link }); } catch { return; }
+    try { await navigator.clipboard.writeText(link); toast("Link copied"); } catch { prompt("Copy this link:", link); }
+  };
+  return b;
+}
+// More like this: other films that share a row or a type with this one.
+function related(v) {
+  const box = $("#m-more"); box.innerHTML = "";
+  const score = (o) => (o.rows || []).filter((r) => (v.rows || []).includes(r)).length * 2 + (o.kind === v.kind ? 1 : 0) + (live(o) ? 0.5 : 0);
+  const list = DATA.videos.filter((o) => o.id !== v.id).map((o) => [score(o), o]).sort((a, b) => b[0] - a[0]).slice(0, 6).map((x) => x[1]);
+  if (!list.length) return;
+  const g = el("div", "more-grid"); list.forEach((o) => g.append(tile(o))); box.append(el("h3", "", "More like this"), g);
+}
 const mine = (vids) => [
   ["Continue Watching", vids.filter((v) => live(v) && part(v)).sort((a, b) => SEEN[b.id].at - SEEN[a.id].at)],
   ["My List", LIST.map((id) => vids.find((v) => v.id === id)).filter(Boolean)],
@@ -61,7 +86,7 @@ function buttons(v, box, big) {
   if (ytId(v.trailer)) { const b = el("button", "btn " + (live(v) ? "more" : "play"), PLAY + "Watch trailer"); b.onclick = () => open(v, "trailer"); a.append(b); }
   if (!live(v) && !ytId(v.trailer)) { const b = el("button", "btn play", "Coming soon"); b.disabled = true; a.append(b); }
   if (big) { const b = el("button", "btn more", INFO + "More info"); b.onclick = () => open(v); a.append(b); }
-  a.append(listBtn(v)); box.append(a);
+  a.append(listBtn(v), shareBtn(v)); box.append(a);
 }
 
 function hero(v) {
@@ -146,7 +171,7 @@ function countPlay(v) {
 }
 
 function tile(v, rank) {
-  const t = el("button", "tile", `<img loading="lazy" decoding="async" width="960" height="540" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
+  const t = el("button", "tile", `<img loading="lazy" decoding="async" width="960" height="540" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? (isNew(v) ? '<span class="flag new">New</span>' : "") : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
     <span class="cap"><strong>${esc(v.title)}</strong><span>${[v.kind, live(v) ? v.length : when(v.release)].filter(Boolean).map(esc).join(" &middot; ")}</span></span>`);
   t.onclick = () => open(v, live(v) && /trailer|preview|short/i.test(v.kind || "") ? "film" : undefined);   // a trailer entry starts playing as soon as it is clicked
   return t;
@@ -200,7 +225,7 @@ function open(v, mode) {
   const stage = $("#stage");
   if (!mode && !film && tr) mode = "trailer";                // coming soon: clicking it plays the trailer; with no trailer it shows the picture
   $("#m-title").textContent = v.title; $("#m-meta").innerHTML = meta(v); $("#m-desc").textContent = v.description || "";
-  const info = $("#m-extra"); info.innerHTML = soon(v); buttons(v, info, false);
+  const info = $("#m-extra"); info.innerHTML = soon(v); buttons(v, info, false); related(v);
   if (mode === "film" && film) pre ? adopt(v, pre) : watch(v, film, true);
   else if (mode === "trailer" && tr) watch(v, tr, false);
   else {
@@ -209,7 +234,8 @@ function open(v, mode) {
   }
   $("#modal").hidden = false; $("#modal").scrollTop = 0; document.body.classList.add("locked"); $("#close").focus();
 }
-function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); showSlide(si); draw($("#q").value); }
+function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); if (PENDING) { const d = PENDING; PENDING = null; return start(d); } showSlide(si); draw($("#q").value); }
+let PENDING = null;
 let FEAT = null;
 
 // ---------- player: our own controls sit under the picture, never on top of it ----------
@@ -367,13 +393,15 @@ function start(d) {
   SLIDES = slides(); showSlide(0);
   $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("") + '<a href="#more" id="more-tab">About</a>';
   draw();
+  const want = window.OPEN_FILM || (location.hash.match(/^#film=(.+)/) || [])[1];
+  if (want) { const v = DATA.videos.find((x) => x.id === decodeURIComponent(want)); if (v) { window.OPEN_FILM = null; if (location.hash.startsWith("#film=")) history.replaceState(null, "", location.pathname); open(v); } }
 }
 // Speed: draw the film list this browser saw last time straight away, then swap in the fresh one only if something changed.
 let shown = ""; const snap = store.get("films", null);
 if (snap && snap.videos && snap.videos.length) { shown = JSON.stringify(snap); start(snap); }
 get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
   const fresh = JSON.stringify(d); if (fresh === shown) return;
-  store.set("films", d); if (!shown || ($("#modal").hidden && SP.hidden)) start(d); shown = fresh;
+  store.set("films", d); if (!shown || ($("#modal").hidden && SP.hidden)) start(d); else PENDING = d; shown = fresh;   // a film is open: swap the list in when it closes
 }).catch(() => { if (!shown) { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; } });
 get(API + "api/plays").then((p) => { PLAYS = p || {}; if (DATA.videos.length) draw($("#q").value); }).catch(() => {});
 // Some YouTube videos have no large thumbnail and YouTube sends a grey placeholder; swap in the standard one when that happens.

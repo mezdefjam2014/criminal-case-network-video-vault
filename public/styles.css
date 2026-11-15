@@ -297,3 +297,15 @@ body.locked { overflow: hidden; }
 @media (min-width: 700px) { .about h1 { flex-wrap: nowrap; white-space: nowrap; } }
 
 .stage iframe.pre { visibility: hidden; }
+
+/* ---------- new badge, share, more like this ---------- */
+.flag.new { background: #fff; color: #0b0b0d; }
+.toast { position: fixed; left: 50%; bottom: 34px; transform: translate(-50%, 20px); z-index: 80; background: #f3f1ec; color: #0b0b0d; font-size: 14px; font-weight: 500; padding: 11px 20px; border-radius: 6px; box-shadow: 0 12px 40px rgba(0, 0, 0, .6); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+#m-more:not(:empty) { margin-top: 34px; padding-top: 26px; border-top: 1px solid var(--line); }
+#m-more h3 { font-size: 19px; font-weight: 500; margin: 0 0 14px; }
+.more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.more-grid .tile { width: auto; }
+.more-grid .tile:hover, .more-grid .tile:focus-visible { transform: scale(1.04); }
+.more-grid .tile .cap { opacity: 1; transform: none; }
+@media (max-width: 640px) { .more-grid { grid-template-columns: repeat(2, 1fr); } }
