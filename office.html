@@ -48,7 +48,7 @@
         <label class="field">Title<input id="f-title" required maxlength="120"></label>
         <label class="field">YouTube link to the film <small>Leave empty and the film shows as "Coming soon". Paste the link when it is out and it goes live.</small><input id="f-youtube" placeholder="https://www.youtube.com/watch?v=..."></label>
         <label class="field">YouTube link to the trailer <small>Optional. Plays as the preview, and can be watched while the film is coming soon.</small><input id="f-trailer" placeholder="https://www.youtube.com/watch?v=..."></label>
-        <label class="field">Release date and time <small>Optional. Shows a countdown until then.</small><input id="f-release" type="datetime-local"></label>
+        <label class="field">Release date <small>Optional. Shows the date and a countdown to that day.</small><input id="f-release" type="date"></label>
         <label class="field">What the film is about<textarea id="f-desc" rows="4" maxlength="900"></textarea></label>
         <div class="three">
           <label class="field">Type<select id="f-kind"><option>Documentary</option><option>Trailer</option><option>Preview</option><option>Short</option><option>Series</option></select></label>
@@ -71,6 +71,6 @@
   </form>
 </div>
 
-<script src="office.js?v=2"></script>
+<script src="office.js?v=3"></script>
 </body>
 </html>

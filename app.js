@@ -26,12 +26,13 @@ const embed = (id, extra = "") => `<iframe src="https://www.youtube-nocookie.com
 
 // ---------- countdown ----------
 function left(release) {
-  const ms = new Date(release).getTime() - Date.now();
+  const ms = dayOf(release).getTime() - Date.now();
   if (!release || isNaN(ms) || ms <= 0) return "";
   const s = Math.floor(ms / 1000), p = (n) => String(n).padStart(2, "0");
   return `${Math.floor(s / 86400)}d ${p(Math.floor(s / 3600) % 24)}h ${p(Math.floor(s / 60) % 60)}m ${p(s % 60)}s`;
 }
-const when = (release) => { const d = new Date(release); return release && !isNaN(d) ? d.toLocaleString([], { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
+const dayOf = (r) => (/^\d{4}-\d\d-\d\d$/.test(r || "") ? new Date(r + "T00:00:00") : new Date(r));          // a release is a date only, no time
+const when = (release) => { const d = dayOf(release); return release && !isNaN(d) ? d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" }) : ""; };
 const soon = (v) => live(v) ? "" : `<div class="soon"><span class="soon-tag">Coming soon</span>${left(v.release) ? `<span class="count" data-release="${esc(v.release)}">${left(v.release)}</span><span class="soon-date">Premieres ${esc(when(v.release))}</span>` : ""}</div>`;
 setInterval(() => document.querySelectorAll("[data-release]").forEach((e) => { e.textContent = left(e.dataset.release) || "Any moment now"; }), 1000);
 
