@@ -215,17 +215,35 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidd
 
 // ---------- start ----------
 addEventListener("scroll", () => $("#nav").classList.toggle("solid", scrollY > 40), { passive: true });
-// Search: the magnifying glass slides open into a box; results replace the page as you type.
-const S = $("#search"), Q = $("#q");
-const searchOpen = () => { S.classList.add("open"); Q.tabIndex = 0; Q.focus(); };
-const searchShut = () => { Q.value = ""; S.classList.remove("open", "has"); Q.tabIndex = -1; draw(""); };
-$("#q-open").onclick = () => (S.classList.contains("open") && !Q.value ? searchShut() : searchOpen());
-$("#q-clear").onclick = () => { Q.value = ""; S.classList.remove("has"); draw(""); Q.focus(); };
-Q.addEventListener("input", () => { S.classList.toggle("has", !!Q.value); draw(Q.value); scrollTo({ top: 0 }); });
-Q.addEventListener("blur", () => setTimeout(() => { if (!Q.value && !S.contains(document.activeElement)) searchShut(); }, 150));
+// Search: a bar pops up in the middle of the screen with matching films listed under it.
+const SP = $("#spot"), Q = $("#q"), SL = $("#spot-list");
+let found = [], sel = 0;
+const searchOpen = () => { killHero(); document.querySelector(".hero-video")?.remove(); SP.hidden = false; Q.value = ""; results(); Q.focus(); };   // the top video stops while search is up
+const searchShut = () => { SP.hidden = true; Q.value = ""; showSlide(si); };
+const choose = (v) => { SP.hidden = true; Q.value = ""; open(v); };
+function results() {
+  const q = Q.value.trim().toLowerCase(); SL.innerHTML = ""; sel = 0;
+  found = q ? DATA.videos.filter((v) => [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q)).slice(0, 7) : [];
+  if (q && !found.length) SL.innerHTML = '<p class="spot-none">No films match that.</p>';
+  found.forEach((v, i) => {
+    const b = el("button", "spot-item" + (i ? "" : " on"), `<img src="${esc(cover(v))}" alt=""><span><strong>${esc(v.title)}</strong><small>${[v.kind, live(v) ? v.length : "Coming soon", v.year].filter(Boolean).map(esc).join(" &middot; ")}</small></span>`);
+    b.onclick = () => choose(v); b.onmousemove = () => mark(i); SL.append(b);
+  });
+}
+function mark(i) { if (!found.length) return; sel = (i + found.length) % found.length; [...SL.children].forEach((c, n) => c.classList.toggle("on", n === sel)); SL.children[sel].scrollIntoView({ block: "nearest" }); }
+$("#q-open").onclick = searchOpen;
+Q.addEventListener("input", results);
+SP.addEventListener("mousedown", (e) => { if (e.target === SP) searchShut(); });
 addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && S.classList.contains("open") && $("#modal").hidden) { searchShut(); Q.blur(); }
-  if (e.key === "/" && $("#modal").hidden && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); searchOpen(); }
+  if (!SP.hidden) {
+    if (e.key === "Escape") { e.stopImmediatePropagation(); searchShut(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); mark(sel + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); mark(sel - 1); }
+    else if (e.key === "Enter" && found[sel]) choose(found[sel]);
+    return;
+  }
+  const typing = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
+  if ($("#modal").hidden && !typing && (e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k"))) { e.preventDefault(); searchOpen(); }
 });
 $("#yr").textContent = new Date().getFullYear();
 
