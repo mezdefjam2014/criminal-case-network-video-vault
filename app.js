@@ -77,11 +77,14 @@ function hero(v) {
   }
   h.append(img, copy);
   if (ytId(v.trailer) || ytId(v.youtube)) {                  // the preview window: click it to watch, hover to hold it, button for sound
-    const box = el("div", "hero-video", `<div class="hv-screen"><div id="hv-yt"></div></div><p class="hv-label"><i></i>Now playing<b>${ytId(v.trailer) ? "Trailer" : "From the film"}</b><button class="hv-sound" aria-label="Sound on or off" title="Sound on or off">${I.off}</button></p>`);
-    const later = () => { clearTimeout(hTimer); if (!HP || !HP.isMuted || HP.isMuted()) hTimer = setTimeout(() => showSlide(si + 1), 12000); };
+    const seen = DONE.has(v.id);                              // already played once this visit: show the cover in the box, not the video again
+    const box = el("div", "hero-video" + (seen ? " on" : ""), seen
+      ? `<div class="hv-screen"><img src="${esc(wide(v))}" alt=""></div><p class="hv-label"><i></i>${live(v) ? "Watch now" : "Coming soon"}<b>${live(v) ? "Play the film" : "Watch the trailer"}</b></p>`
+      : `<div class="hv-screen"><div id="hv-yt"></div></div><p class="hv-label"><i></i>Now playing<b>${ytId(v.trailer) ? "Trailer" : "From the film"}</b><button class="hv-sound" aria-label="Sound on or off" title="Sound on or off">${I.off}</button></p>`);
+    const later = () => { clearTimeout(hTimer); if (DONE.has(v.id)) { if (SLIDES.length > 1) hTimer = setTimeout(() => showSlide(si + 1), 6000); return; } if (!HP || !HP.isMuted || HP.isMuted()) hTimer = setTimeout(() => { DONE.add(v.id); toCover(v); }, 60000); };
     box.title = "Click to watch"; box.onclick = () => open(v, live(v) ? "film" : undefined);
     box.onmouseenter = () => clearTimeout(hTimer); box.onmouseleave = later;
-    box.querySelector(".hv-sound").onclick = (e) => {
+    (box.querySelector(".hv-sound") || {}).onclick = (e) => {
       e.stopPropagation(); if (!HP || !HP.isMuted) return;
       const was = HP.isMuted(); was ? HP.unMute() : HP.mute(); e.currentTarget.innerHTML = was ? I.vol : I.off; e.currentTarget.classList.toggle("on", was); clearTimeout(hTimer);
     };
@@ -91,6 +94,7 @@ function hero(v) {
 
 // ---------- the top of the page: one pinned film, or a rotation that quietly plays trailers and pieces of films ----------
 let SLIDES = [], si = 0, HP = null, hTimer = 0, PLAYS = {};
+const DONE = new Set();                                     // films whose top video has already played once on this visit
 function slides() {
   const pin = DATA.videos.find((v) => v.id === DATA.featured); if (pin) return [pin];
   const top = DATA.videos.filter((v) => v.top);
@@ -108,11 +112,25 @@ let calm = false; const calmQ = [];
 const whenCalm = (f) => (calm ? f() : calmQ.push(f));
 const settle = () => setTimeout(() => { calm = true; calmQ.splice(0).forEach((f) => f()); }, 1200);
 document.readyState === "complete" ? settle() : addEventListener("load", settle);
+// After its one play, the player fades out and the cover fades in, in the same box. A page refresh starts fresh.
+function toCover(v) {
+  const box = document.querySelector(".hero-video"), scr = box && box.querySelector(".hv-screen");
+  clearTimeout(hTimer); if (!scr || FEAT !== v) return;
+  scr.classList.add("out");
+  setTimeout(() => {
+    if (FEAT !== v || !document.contains(scr)) return;
+    killHero();
+    scr.innerHTML = `<img src="${esc(wide(v))}" alt="">`;
+    box.querySelector(".hv-label").innerHTML = `<i></i>${live(v) ? "Watch now" : "Coming soon"}<b>${live(v) ? "Play the film" : "Watch the trailer"}</b>`;
+    requestAnimationFrame(() => requestAnimationFrame(() => scr.classList.remove("out")));
+    if (SLIDES.length > 1) hTimer = setTimeout(() => showSlide(si + 1), 6000);
+  }, 750);
+}
 function heroPlay(v) {
-  const tr = ytId(v.trailer), id = tr || ytId(v.youtube), next = () => showSlide(si + 1);
+  const tr = ytId(v.trailer), id = tr || ytId(v.youtube), move = () => showSlide(si + 1), next = () => { DONE.add(v.id); toCover(v); };   // next = this one has had its one play
   const still = () => FEAT === v && $("#modal").hidden && document.getElementById("hv-yt");
-  if (!id || LITE) { if (SLIDES.length > 1) hTimer = setTimeout(next, 9000); return; }
-  hTimer = setTimeout(next, 30000);                           // each one gets about 30 seconds
+  if (!id || LITE || DONE.has(v.id)) { if (SLIDES.length > 1) hTimer = setTimeout(move, 9000); return; }
+  hTimer = setTimeout(next, tr ? 180000 : 30000);             // a trailer plays through once (3 minutes at most); a piece of a film gets about 30 seconds
   whenCalm(() => loadApi().then(() => {
     if (!still()) return;
     HP = new YT.Player("hv-yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, disablekb: 1 },
@@ -174,7 +192,7 @@ function draw(query = "") {
 // ---------- film window ----------
 // mode: "film" plays the film, "trailer" plays the trailer with sound, nothing = info view (the trailer plays quietly as a preview if there is one).
 function open(v, mode) {
-  stop(); killHero();
+  stop(); if (HP && FEAT) DONE.add(FEAT.id); killHero();
   const stage = $("#stage"), film = ytId(v.youtube), tr = ytId(v.trailer);
   if (!mode && !film && tr) mode = "trailer";                // coming soon: clicking it plays the trailer; with no trailer it shows the picture
   $("#m-title").textContent = v.title; $("#m-meta").innerHTML = meta(v); $("#m-desc").textContent = v.description || "";
