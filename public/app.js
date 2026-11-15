@@ -68,7 +68,7 @@ function hero(v) {
   const h = $("#hero"); h.innerHTML = "";
   if (!v) { h.style.display = "none"; return; }
   const img = el("img", "hero-img"); img.fetchPriority = "high"; img.decoding = "async"; img.src = wide(v); img.alt = "";
-  const copy = el("div", "hero-copy", `<p class="tagline">${live(v) ? "Featured film" : "Coming soon"}</p><h1>${esc(v.title)}</h1><p class="meta">${meta(v)}</p>${soon(v)}<p class="desc">${esc(v.description)}</p>`);
+  const copy = el("div", "hero-copy", `<p class="tagline">${live(v) ? "Featured film" : "Coming soon"}</p><h1 class="${v.title.length > 44 ? "long" : v.title.length > 20 ? "mid" : ""}">${esc(v.title)}</h1><p class="meta">${meta(v)}</p>${soon(v)}<p class="desc">${esc(v.description)}</p>`);
   buttons(v, copy, true);
   if (SLIDES.length > 1) {
     const dots = el("div", "dots");
