@@ -231,10 +231,12 @@ function paint() {
   $("#c-mute").innerHTML = P.isMuted() || P.getVolume() === 0 ? I.off : I.vol;
 }
 async function watch(v, id, track) {
-  now = { v, track }; $("#stage").innerHTML = '<div id="yt"></div>'; $("#ctrl").hidden = false; $("#c-speed").value = "1";
-  await loadApi(); if (!now || now.v !== v) return;
+  // The player is put on the page in the same instant as the click, already set to start, so the browser treats it as the viewer pressing play.
   const from = track && part(v) ? SEEN[v.id].t : 0;
-  P = new YT.Player("yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, start: from },
+  now = { v, track }; $("#ctrl").hidden = false; $("#c-speed").value = "1";
+  $("#stage").innerHTML = `<iframe id="yt" src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&controls=0&rel=0&playsinline=1&fs=0&enablejsapi=1&start=${from}&origin=${encodeURIComponent(location.origin)}" title="${esc(v.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+  await loadApi(); if (!now || now.v !== v) return;
+  P = new YT.Player("yt", {
     events: { onReady: () => { P.setVolume(store.get("vol", 100)); $("#c-vol").value = store.get("vol", 100); P.playVideo(); paint();
       setTimeout(() => { if (ready() && now && now.v === v && ![1, 3].includes(P.getPlayerState())) { P.mute(); P.playVideo(); } }, 1800); }  /* if the browser refuses to start with sound, start silent so it still plays */, onStateChange: (e) => { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
   clearInterval(timer); let n = 0; let on = 0; timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); if (track && ready() && P.getPlayerState() === 1 && ++on === 60) countPlay(v); }, 500);
@@ -257,6 +259,7 @@ addEventListener("keydown", (e) => {
   if (k) { e.preventDefault(); k(); }
 });
 addEventListener("pagehide", remember);
+whenCalm(loadApi);                                           // have the player code ready before anyone presses play
 $("#close").onclick = shut;
 $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") shut(); });
 addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidden) shut(); });
