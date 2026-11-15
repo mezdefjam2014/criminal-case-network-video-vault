@@ -92,12 +92,12 @@ function showSlide(i) {
 function heroPlay(v) {
   const tr = ytId(v.trailer), id = tr || ytId(v.youtube), next = () => showSlide(si + 1);
   const still = () => FEAT === v && $("#modal").hidden && document.getElementById("hv-yt");
-  if (!id || matchMedia("(prefers-reduced-motion: reduce)").matches) { if (SLIDES.length > 1) hTimer = setTimeout(next, 9000); return; }
+  if (!id) { if (SLIDES.length > 1) hTimer = setTimeout(next, 9000); return; }
   hTimer = setTimeout(next, 30000);                           // each one gets about 30 seconds
   loadApi().then(() => {
     if (!still()) return;
     HP = new YT.Player("hv-yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, disablekb: 1 },
-      events: { onReady: (e) => { e.target.mute(); const d = e.target.getDuration(); if (!tr && d > 90) e.target.seekTo(d * (0.15 + Math.random() * 0.6), true); e.target.playVideo(); },
+      events: { onReady: (e) => { document.querySelector(".hero-video")?.classList.add("on"); e.target.mute(); const d = e.target.getDuration(); if (!tr && d > 90) e.target.seekTo(d * (0.15 + Math.random() * 0.6), true); e.target.playVideo(); },
         onStateChange: (e) => { if (e.data === 1) document.querySelector(".hero-video")?.classList.add("on"); if (e.data === 0) { clearTimeout(hTimer); next(); } } } });
   });
 }
