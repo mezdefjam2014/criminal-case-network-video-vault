@@ -75,7 +75,17 @@ function hero(v) {
     copy.append(dots);
   }
   h.append(img, copy);
-  if (ytId(v.trailer) || ytId(v.youtube)) h.append(el("div", "hero-video", `<div class="hv-screen"><div id="hv-yt"></div></div><p class="hv-label"><i></i>Now playing<b>${ytId(v.trailer) ? "Trailer" : "From the film"}</b></p>`));
+  if (ytId(v.trailer) || ytId(v.youtube)) {                  // the preview window: click it to watch, hover to hold it, button for sound
+    const box = el("div", "hero-video", `<div class="hv-screen"><div id="hv-yt"></div></div><p class="hv-label"><i></i>Now playing<b>${ytId(v.trailer) ? "Trailer" : "From the film"}</b><button class="hv-sound" aria-label="Sound on or off" title="Sound on or off">${I.off}</button></p>`);
+    const later = () => { clearTimeout(hTimer); if (!HP || !HP.isMuted || HP.isMuted()) hTimer = setTimeout(() => showSlide(si + 1), 12000); };
+    box.title = "Click to watch"; box.onclick = () => open(v, live(v) ? "film" : undefined);
+    box.onmouseenter = () => clearTimeout(hTimer); box.onmouseleave = later;
+    box.querySelector(".hv-sound").onclick = (e) => {
+      e.stopPropagation(); if (!HP || !HP.isMuted) return;
+      const was = HP.isMuted(); was ? HP.unMute() : HP.mute(); e.currentTarget.innerHTML = was ? I.vol : I.off; e.currentTarget.classList.toggle("on", was); clearTimeout(hTimer);
+    };
+    h.append(box);
+  }
 }
 
 // ---------- the top of the page: one pinned film, or a rotation that quietly plays trailers and pieces of films ----------
