@@ -1,0 +1,155 @@
+// Back office for the Video Vault. Everything is saved in Cloudflare; the password is checked there, not here.
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function ytId(link) {
+  const s = String(link || "").trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtu\.be\/|[?&]v=|\/(?:embed|shorts|live)\/)([\w-]{11})/);
+  return m ? m[1] : "";
+}
+const say = (id, text, kind = "") => { const e = $(id); e.textContent = text; e.className = "msg " + kind; };
+const DEFAULT_ROWS = ["New Releases", "Documentaries", "Trailers & Previews"];
+
+let PW = sessionStorage.getItem("ccn-office") || "";
+let DATA = { featured: "", rows: [], videos: [] };
+let editing = null, picked = null;                           // picked = { tile: Blob, wide: Blob|null, url }
+
+async function api(method, url, body, type) {
+  const r = await fetch(url, { method, body, headers: { authorization: "Bearer " + PW, ...(type ? { "content-type": type } : {}) } });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) { leave(); throw new Error("Wrong password."); }
+  if (!r.ok) throw new Error(d.error || "Cloudflare did not accept that (" + r.status + ").");
+  return d;
+}
+
+// ---------- in and out ----------
+async function enter() {
+  await api("POST", "api/login");
+  sessionStorage.setItem("ccn-office", PW);
+  DATA = await fetch("api/videos", { cache: "no-store" }).then((r) => r.json());
+  if (!DATA.rows.length) DATA.rows = [...DEFAULT_ROWS];
+  $("#gate").hidden = true; $("#desk").hidden = false; draw();
+}
+function leave() { PW = ""; sessionStorage.removeItem("ccn-office"); $("#desk").hidden = true; $("#gate").hidden = false; $("#pw").value = ""; }
+$("#gate").onsubmit = async (e) => { e.preventDefault(); PW = $("#pw").value; say("#gate-msg", "Checking..."); try { await enter(); say("#gate-msg", ""); } catch (x) { say("#gate-msg", x.message === "Failed to fetch" ? "Could not reach the site." : x.message, "bad"); } };
+$("#out").onclick = leave;
+if (PW) enter().catch(() => {});
+
+// ---------- film list ----------
+const save = () => api("PUT", "api/videos", JSON.stringify(DATA), "application/json");
+const coverOf = (v) => v.cover || (ytId(v.youtube) || ytId(v.trailer) ? `https://i.ytimg.com/vi/${ytId(v.youtube) || ytId(v.trailer)}/hqdefault.jpg` : "");
+const stored = (u) => (String(u || "").match(/^api\/cover\/([a-z0-9-]+\.jpg)$/) || [])[1];
+const drop = (u) => stored(u) ? api("DELETE", "api/cover/" + stored(u)).catch(() => {}) : null;
+
+function draw() {
+  $("#rows").value = DATA.rows.join(", ");
+  const list = $("#list"); list.innerHTML = "";
+  if (!DATA.videos.length) { list.innerHTML = '<div class="none">No films yet. Press "Add a film" to put up the first one.</div>'; return; }
+  DATA.videos.forEach((v, i) => {
+    const liveNow = !!ytId(v.youtube), d = document.createElement("div"); d.className = "item";
+    const date = v.release && !isNaN(new Date(v.release)) ? new Date(v.release).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+    d.innerHTML = `<img src="${esc(coverOf(v))}" alt=""><div class="what"><strong>${esc(v.title)}</strong>
+      <span>${DATA.featured === v.id ? '<i class="pill feat">Featured</i>' : ""}<i class="pill ${liveNow ? "" : "soon"}">${liveNow ? "Live" : "Coming soon"}</i>${esc([!liveNow && date, ytId(v.trailer) && "has trailer", (v.rows || []).join(", ")].filter(Boolean).join(" · "))}</span></div>
+      <div class="tools"><button class="btn more icon" data-a="up" title="Move up">&uarr;</button><button class="btn more icon" data-a="down" title="Move down">&darr;</button>
+      <button class="btn more" data-a="edit">Edit</button><button class="btn more danger" data-a="del">Remove</button></div>`;
+    d.querySelector(".tools").onclick = (e) => { const a = e.target.dataset.a; if (a) act(a, i); };
+    list.append(d);
+  });
+}
+
+async function act(a, i) {
+  const v = DATA.videos[i];
+  if (a === "edit") return edit(v);
+  try {
+    if (a === "del") {
+      if (!confirm(`Remove "${v.title}" from the site? Its cover is erased too.`)) return;
+      DATA.videos.splice(i, 1); if (DATA.featured === v.id) DATA.featured = DATA.videos[0]?.id || "";
+      await save(); await drop(v.cover); await drop(v.wide);
+    } else {
+      const j = a === "up" ? i - 1 : i + 1; if (j < 0 || j >= DATA.videos.length) return;
+      [DATA.videos[i], DATA.videos[j]] = [DATA.videos[j], DATA.videos[i]]; await save();
+    }
+    say("#msg", "Saved.", "good");
+  } catch (x) { say("#msg", x.message, "bad"); }
+  draw();
+}
+$("#rows").onchange = async () => {
+  DATA.rows = [...new Set($("#rows").value.split(",").map((s) => s.trim()).filter(Boolean))];
+  try { await save(); say("#msg", "Rows saved.", "good"); } catch (x) { say("#msg", x.message, "bad"); }
+  draw();
+};
+
+// ---------- cover: any picture in, a small sharp 16:9 JPEG out ----------
+async function shrink(file, W, H, q) {
+  const src = await createImageBitmap(file);
+  const s = Math.max(W / src.width, H / src.height), sw = W / s, sh = H / s;          // fill 16:9, centred, top-weighted for faces
+  let c = document.createElement("canvas"), w = Math.round(sw), h = Math.round(sh);
+  c.width = w; c.height = h; c.getContext("2d").drawImage(src, (src.width - sw) / 2, (src.height - sh) * 0.3, sw, sh, 0, 0, w, h);
+  while (w / 2 >= W) {                                                               // halve in steps: keeps edges and lettering crisp
+    const n = document.createElement("canvas"); n.width = w = Math.round(w / 2); n.height = h = Math.round(h / 2);
+    const x = n.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(c, 0, 0, w, h); c = n;
+  }
+  const out = document.createElement("canvas"); out.width = W; out.height = H;
+  const x = out.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(c, 0, 0, W, H);
+  return new Promise((ok) => out.toBlob(ok, "image/jpeg", q));
+}
+async function pick(file) {
+  if (!file || !file.type.startsWith("image/")) return say("#f-msg", "That is not a picture.", "bad");
+  say("#f-size", "Making it smaller...");
+  try {
+    const dim = await createImageBitmap(file);
+    const tile = await shrink(file, 960, 540, 0.86), wideOne = dim.width >= 1500 ? await shrink(file, 1920, 1080, 0.86) : null;
+    picked = { tile, wide: wideOne, url: URL.createObjectURL(tile) };
+    $("#f-prev").src = picked.url; $("#drop-text").hidden = true;
+    say("#f-size", `Original ${(file.size / 1024).toFixed(0)} KB, ${dim.width}x${dim.height}. Saved as ${(tile.size / 1024).toFixed(0)} KB${wideOne ? ` plus a large ${(wideOne.size / 1024).toFixed(0)} KB version for the featured spot` : ""}.`);
+  } catch { say("#f-size", "That picture could not be read. Try a JPG or PNG.", "bad"); }
+}
+const dz = $("#drop");
+dz.onclick = () => $("#f-file").click();
+$("#f-file").onchange = (e) => pick(e.target.files[0]);
+dz.ondragover = (e) => { e.preventDefault(); dz.classList.add("over"); };
+dz.ondragleave = () => dz.classList.remove("over");
+dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove("over"); pick(e.dataTransfer.files[0]); };
+
+// ---------- add / edit ----------
+const localTime = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""; };
+function edit(v) {
+  editing = v || null; picked = null;
+  $("#f-head").textContent = v ? "Edit film" : "Add a film";
+  $("#f-title").value = v?.title || ""; $("#f-youtube").value = v?.youtube || ""; $("#f-trailer").value = v?.trailer || "";
+  $("#f-release").value = localTime(v?.release); $("#f-desc").value = v?.description || ""; $("#f-kind").value = v?.kind || "Documentary";
+  $("#f-length").value = v?.length || ""; $("#f-year").value = v?.year || String(new Date().getFullYear());
+  $("#f-featured").checked = v ? DATA.featured === v.id : !DATA.videos.length;
+  $("#f-rows").innerHTML = DATA.rows.map((r) => `<label class="check"><input type="checkbox" value="${esc(r)}" ${(v ? v.rows || [] : [DATA.rows[0]]).includes(r) ? "checked" : ""}> ${esc(r)}</label>`).join("");
+  $("#f-prev").src = v ? coverOf(v) : ""; $("#drop-text").hidden = !!(v && coverOf(v)); $("#f-file").value = "";
+  say("#f-msg", ""); say("#f-size", "Any size works. It is made smaller automatically and stays sharp. With no cover, the YouTube thumbnail is used.");
+  $("#editor").hidden = false; $("#editor").scrollTop = 0; $("#f-title").focus();
+}
+const closeEditor = () => { $("#editor").hidden = true; };
+$("#add").onclick = () => edit(null); $("#cancel").onclick = closeEditor; $("#cancel2").onclick = closeEditor;
+
+$("#form").onsubmit = async (e) => {
+  e.preventDefault();
+  const yt = $("#f-youtube").value.trim(), tr = $("#f-trailer").value.trim();
+  if (yt && !ytId(yt)) return say("#f-msg", "The film link is not a YouTube link.", "bad");
+  if (tr && !ytId(tr)) return say("#f-msg", "The trailer link is not a YouTube link.", "bad");
+  $("#save").disabled = true; say("#f-msg", "Saving...");
+  try {
+    const v = editing || { id: ($("#f-title").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "film") + "-" + Date.now().toString(36) };
+    const old = [];
+    if (picked) {                                             // new cover: upload, then erase the one it replaces
+      const base = v.id.slice(0, 60) + "-" + Date.now().toString(36);
+      old.push(v.cover, v.wide);
+      v.cover = (await api("PUT", `api/cover/${base}.jpg`, picked.tile, "image/jpeg")).url;
+      v.wide = picked.wide ? (await api("PUT", `api/cover/${base}-wide.jpg`, picked.wide, "image/jpeg")).url : "";
+    }
+    const rel = $("#f-release").value;
+    Object.assign(v, { title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel ? new Date(rel).toISOString() : "", description: $("#f-desc").value.trim(),
+      kind: $("#f-kind").value, length: $("#f-length").value.trim(), year: $("#f-year").value.trim(), rows: [...document.querySelectorAll("#f-rows input:checked")].map((c) => c.value) });
+    if (!editing) DATA.videos.unshift(v);
+    if ($("#f-featured").checked) DATA.featured = v.id; else if (DATA.featured === v.id) DATA.featured = "";
+    await save(); for (const u of old) await drop(u);
+    closeEditor(); draw(); say("#msg", `"${v.title}" saved. ${ytId(yt) ? "It is live." : "It shows as coming soon."}`, "good");
+  } catch (x) { say("#f-msg", x.message, "bad"); }
+  $("#save").disabled = false;
+};
