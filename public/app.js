@@ -74,7 +74,7 @@ function hero(v) {
     copy.append(dots);
   }
   h.append(img, copy);
-  if (ytId(v.trailer) || ytId(v.youtube)) h.append(el("div", "hero-video", '<div id="hv-yt"></div>'));
+  if (ytId(v.trailer) || ytId(v.youtube)) h.append(el("div", "hero-video", `<div class="hv-screen"><div id="hv-yt"></div></div><p class="hv-label"><i></i>Now playing<b>${ytId(v.trailer) ? "Trailer" : "From the film"}</b></p>`));
 }
 
 // ---------- the top of the page: one pinned film, or a rotation that quietly plays trailers and pieces of films ----------
