@@ -43,7 +43,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .spot-box { width: min(680px, 100%); background: rgba(32, 32, 36, .82); -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5); border: 1px solid rgba(255, 255, 255, .16); border-radius: 16px; box-shadow: 0 30px 90px rgba(0, 0, 0, .7); overflow: hidden; animation: spot-in .22s cubic-bezier(.2, .8, .2, 1) both; }
 .spot-bar { display: flex; align-items: center; gap: 14px; padding: 0 20px; height: 64px; }
 .spot-bar svg { width: 24px; height: 24px; fill: none; stroke: #b9b6b0; stroke-width: 1.8; stroke-linecap: round; flex: none; }
-.spot-bar input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: #fff; font: inherit; font-size: 22px; font-weight: 300; }
+.spot-bar input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: #fff; font: inherit; font-size: 22px; font-weight: 400; }
 .spot-bar input::placeholder { color: #8d8a85; }
 .spot-bar kbd { font: inherit; font-size: 11px; color: #a9a6a0; border: 1px solid rgba(255, 255, 255, .22); border-radius: 5px; padding: 2px 7px; }
 .spot-list { max-height: min(56vh, 520px); overflow-y: auto; }

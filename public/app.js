@@ -66,7 +66,7 @@ function buttons(v, box, big) {
 function hero(v) {
   const h = $("#hero"); h.innerHTML = "";
   if (!v) { h.style.display = "none"; return; }
-  const img = el("img", "hero-img"); img.src = wide(v); img.alt = "";
+  const img = el("img", "hero-img"); img.fetchPriority = "high"; img.decoding = "async"; img.src = wide(v); img.alt = "";
   const copy = el("div", "hero-copy", `<p class="tagline">${live(v) ? "Featured film" : "Coming soon"}</p><h1>${esc(v.title)}</h1><p class="meta">${meta(v)}</p>${soon(v)}<p class="desc">${esc(v.description)}</p>`);
   buttons(v, copy, true);
   if (SLIDES.length > 1) {
@@ -100,18 +100,24 @@ function showSlide(i) {
   killHero(); if (!SLIDES.length) return hero(null);
   if (VIEW === "mine") return;
   si = (i + SLIDES.length) % SLIDES.length; FEAT = SLIDES[si]; hero(FEAT); heroPlay(FEAT);
+  const nx = SLIDES[(si + 1) % SLIDES.length]; if (nx !== FEAT && wide(nx)) whenCalm(() => { new Image().src = wide(nx); });   // have the next picture ready
 }
+const LITE = !!(navigator.connection && (navigator.connection.saveData || /2g/.test(navigator.connection.effectiveType || "")));
+let calm = false; const calmQ = [];
+const whenCalm = (f) => (calm ? f() : calmQ.push(f));
+const settle = () => setTimeout(() => { calm = true; calmQ.splice(0).forEach((f) => f()); }, 1200);
+document.readyState === "complete" ? settle() : addEventListener("load", settle);
 function heroPlay(v) {
   const tr = ytId(v.trailer), id = tr || ytId(v.youtube), next = () => showSlide(si + 1);
   const still = () => FEAT === v && $("#modal").hidden && document.getElementById("hv-yt");
-  if (!id) { if (SLIDES.length > 1) hTimer = setTimeout(next, 9000); return; }
+  if (!id || LITE) { if (SLIDES.length > 1) hTimer = setTimeout(next, 9000); return; }
   hTimer = setTimeout(next, 30000);                           // each one gets about 30 seconds
-  loadApi().then(() => {
+  whenCalm(() => loadApi().then(() => {
     if (!still()) return;
     HP = new YT.Player("hv-yt", { host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, disablekb: 1 },
       events: { onReady: (e) => { document.querySelector(".hero-video")?.classList.add("on"); e.target.mute(); const d = e.target.getDuration(); if (!tr && d > 90) e.target.seekTo(d * (0.15 + Math.random() * 0.6), true); e.target.playVideo(); },
         onStateChange: (e) => { if (e.data === 1) document.querySelector(".hero-video")?.classList.add("on"); if (e.data === 0) { clearTimeout(hTimer); next(); } } } });
-  });
+  }));
 }
 function countPlay(v) {
   const done = store.get("played", {}); if (Date.now() - (done[v.id] || 0) < 6 * 3600e3) return;
@@ -120,7 +126,7 @@ function countPlay(v) {
 }
 
 function tile(v, rank) {
-  const t = el("button", "tile", `<img loading="lazy" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
+  const t = el("button", "tile", `<img loading="lazy" decoding="async" width="960" height="540" src="${esc(cover(v))}" alt="${esc(v.title)}">${rank ? `<span class="rank">${rank}</span>` : ""}${live(v) ? "" : '<span class="flag">Coming soon</span>'}${part(v) ? `<i class="prog"><i style="width:${Math.round(part(v) * 100)}%"></i></i>` : ""}
     <span class="cap"><strong>${esc(v.title)}</strong><span>${[v.kind, live(v) ? v.length : when(v.release)].filter(Boolean).map(esc).join(" &middot; ")}</span></span>`);
   t.onclick = () => open(v);
   return t;
@@ -272,10 +278,17 @@ addEventListener("keydown", (e) => {
 $("#yr").textContent = new Date().getFullYear();
 
 const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) throw 0; return r.json(); });
-get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
+function start(d) {
   DATA = d; DATA.rows = d.rows && d.rows.length ? d.rows : [...new Set(d.videos.flatMap((v) => v.rows || []))];
   SLIDES = slides(); showSlide(0);
   $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("");
   draw();
-}).catch(() => { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; });
+}
+// Speed: draw the film list this browser saw last time straight away, then swap in the fresh one only if something changed.
+let shown = ""; const snap = store.get("films", null);
+if (snap && snap.videos && snap.videos.length) { shown = JSON.stringify(snap); start(snap); }
+get(API + "api/videos").then((d) => { if (!d.videos || !d.videos.length) throw 0; return d; }).catch(() => get("data/videos.json")).then((d) => {
+  const fresh = JSON.stringify(d); if (fresh === shown) return;
+  store.set("films", d); if (!shown || ($("#modal").hidden && SP.hidden)) start(d); shown = fresh;
+}).catch(() => { if (!shown) { $("#empty").hidden = false; $("#empty").textContent = "The film list could not be loaded."; } });
 get(API + "api/plays").then((p) => { PLAYS = p || {}; if (DATA.videos.length) draw($("#q").value); }).catch(() => {});
