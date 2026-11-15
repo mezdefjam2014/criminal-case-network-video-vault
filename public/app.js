@@ -104,6 +104,7 @@ function draw(query = "") {
 function open(v, mode) {
   stop();
   const stage = $("#stage"), film = ytId(v.youtube), tr = ytId(v.trailer);
+  if (!mode && !film && tr) mode = "trailer";                // coming soon: clicking it plays the trailer; with no trailer it shows the picture
   $("#m-title").textContent = v.title; $("#m-meta").innerHTML = meta(v); $("#m-desc").textContent = v.description || "";
   const info = $("#m-extra"); info.innerHTML = soon(v); buttons(v, info, false);
   if (mode === "film" && film) watch(v, film, true);
