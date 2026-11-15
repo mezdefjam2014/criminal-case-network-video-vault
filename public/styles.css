@@ -28,10 +28,18 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .links { display: flex; gap: 24px; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
 .links a { font-size: 14px; color: #d6d3cd; transition: color .2s; }
 .links a:hover { color: #fff; }
-.search { display: flex; align-items: center; gap: 8px; border: 1px solid transparent; padding: 7px 10px; transition: border-color .25s, background .25s; }
-.search:focus-within { border-color: rgba(255, 255, 255, .7); background: rgba(0, 0, 0, .7); }
+.search { display: flex; align-items: center; margin-left: auto; border: 1px solid transparent; transition: border-color .3s, background .3s; }
+.search button { width: 38px; height: 36px; display: grid; place-items: center; flex: none; }
+.search.open { border-color: rgba(255, 255, 255, .85); background: rgba(0, 0, 0, .8); }
+.search input::-webkit-search-cancel-button { display: none; }
+#q-clear { display: none; width: 32px; }
+#q-clear svg { width: 15px; height: 15px; }
+.search.open.has #q-clear { display: grid; }
+.row.grid .track { flex-wrap: wrap; overflow: visible; gap: 28px 8px; }
+.row.grid .arrow { display: none; }
 .search svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; flex: none; }
-.search input { width: 150px; background: none; border: 0; outline: 0; color: #fff; font: inherit; font-size: 14px; }
+.search input { width: 0; padding: 0; opacity: 0; background: none; border: 0; outline: 0; color: #fff; font: inherit; font-size: 14px; transition: width .35s cubic-bezier(.2, .7, .2, 1), opacity .25s; }
+.search.open input { width: min(240px, 44vw); opacity: 1; }
 .search input::placeholder { color: #9b9892; }
 
 /* ---------- featured film ---------- */

@@ -130,7 +130,7 @@ function row(name, list, ranked) {
 function draw(query = "") {
   const q = query.trim().toLowerCase(), box = $("#rows"); box.innerHTML = "";
   const vids = DATA.videos.filter((v) => !q || [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q));
-  if (q) { if (vids.length) box.append(row(`Results for "${query.trim()}"`, vids)); }
+  if (q) { if (vids.length) { const r = row(`Results for "${query.trim()}"`, vids); r.classList.add("grid"); box.append(r); } }
   else {
     const rows = DATA.rows.map((name) => [name, vids.filter((v) => (v.rows || []).includes(name))]).filter((r) => r[1].length);
     const pop = vids.filter((v) => live(v) && PLAYS[v.id] > 0).sort((a, b) => PLAYS[b.id] - PLAYS[a.id]).slice(0, 10);
@@ -215,7 +215,18 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidd
 
 // ---------- start ----------
 addEventListener("scroll", () => $("#nav").classList.toggle("solid", scrollY > 40), { passive: true });
-$("#q").addEventListener("input", (e) => draw(e.target.value));
+// Search: the magnifying glass slides open into a box; results replace the page as you type.
+const S = $("#search"), Q = $("#q");
+const searchOpen = () => { S.classList.add("open"); Q.tabIndex = 0; Q.focus(); };
+const searchShut = () => { Q.value = ""; S.classList.remove("open", "has"); Q.tabIndex = -1; draw(""); };
+$("#q-open").onclick = () => (S.classList.contains("open") && !Q.value ? searchShut() : searchOpen());
+$("#q-clear").onclick = () => { Q.value = ""; S.classList.remove("has"); draw(""); Q.focus(); };
+Q.addEventListener("input", () => { S.classList.toggle("has", !!Q.value); draw(Q.value); scrollTo({ top: 0 }); });
+Q.addEventListener("blur", () => setTimeout(() => { if (!Q.value && !S.contains(document.activeElement)) searchShut(); }, 150));
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.classList.contains("open") && $("#modal").hidden) { searchShut(); Q.blur(); }
+  if (e.key === "/" && $("#modal").hidden && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); searchOpen(); }
+});
 $("#yr").textContent = new Date().getFullYear();
 
 const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) throw 0; return r.json(); });
