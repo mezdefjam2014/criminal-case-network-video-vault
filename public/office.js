@@ -52,7 +52,7 @@ function draw() {
   if (!DATA.videos.length) { list.innerHTML = '<div class="none">No films yet. Press "Add a film" to put up the first one.</div>'; return; }
   DATA.videos.forEach((v, i) => {
     const liveNow = !!ytId(v.youtube), d = document.createElement("div"); d.className = "item";
-    const date = v.release && !isNaN(new Date(v.release)) ? new Date(v.release).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+    const date = v.release && !isNaN(dayOf(v.release)) ? dayOf(v.release).toLocaleDateString([], { dateStyle: "medium" }) : "";
     d.innerHTML = `<img src="${esc(coverOf(v))}" alt=""><div class="what"><strong>${esc(v.title)}</strong>
       <span>${DATA.featured === v.id ? '<i class="pill feat">Pinned at top</i>' : ""}<i class="pill ${liveNow ? "" : "soon"}">${liveNow ? "Live" : "Coming soon"}</i>${esc([!liveNow && date, PLAYS[v.id] && PLAYS[v.id] + " plays in 14 days", v.top && "in top rotation", ytId(v.trailer) && "has trailer", (v.rows || []).join(", ")].filter(Boolean).join(" · "))}</span></div>
       <div class="tools"><button class="btn more icon" data-a="up" title="Move up">&uarr;</button><button class="btn more icon" data-a="down" title="Move down">&darr;</button>
@@ -117,7 +117,8 @@ dz.ondragleave = () => dz.classList.remove("over");
 dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove("over"); pick(e.dataTransfer.files[0]); };
 
 // ---------- add / edit ----------
-const localTime = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""; };
+const dayOf = (r) => (/^\d{4}-\d\d-\d\d$/.test(r || "") ? new Date(r + "T00:00:00") : new Date(r));          // a release is a date only, no time
+const localTime = (iso) => { const d = dayOf(iso); return iso && !isNaN(d) ? new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) : ""; };
 function edit(v) {
   editing = v || null; picked = null; asked = "";
   $("#f-head").textContent = v ? "Edit film" : "Add a film";
@@ -175,7 +176,7 @@ $("#form").onsubmit = async (e) => {
       v.wide = picked.wide ? (await api("PUT", `api/cover/${base}-wide.jpg`, picked.wide, "image/jpeg")).url : "";
     }
     const rel = $("#f-release").value;
-    Object.assign(v, { top: $("#f-top").checked, title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel ? new Date(rel).toISOString() : "", description: $("#f-desc").value.trim(),
+    Object.assign(v, { top: $("#f-top").checked, title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel || "", description: $("#f-desc").value.trim(),
       kind: $("#f-kind").value, length: $("#f-length").value.trim(), year: $("#f-year").value.trim(), rows: [...document.querySelectorAll("#f-rows input:checked")].map((c) => c.value) });
     if (!editing) DATA.videos.unshift(v);
     if ($("#f-featured").checked) DATA.featured = v.id; else if (DATA.featured === v.id) DATA.featured = "";
