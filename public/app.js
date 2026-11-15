@@ -334,7 +334,7 @@ const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) thro
 function start(d) {
   DATA = d; DATA.rows = d.rows && d.rows.length ? d.rows : [...new Set(d.videos.flatMap((v) => v.rows || []))];
   SLIDES = slides(); showSlide(0);
-  $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("") + '<a href="#more" id="more-tab">More</a>';
+  $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("") + '<a href="#more" id="more-tab">About</a>';
   draw();
 }
 // Speed: draw the film list this browser saw last time straight away, then swap in the fresh one only if something changed.
