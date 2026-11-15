@@ -104,7 +104,7 @@ function slides() {
 function killHero() { clearTimeout(hTimer); try { HP && HP.destroy(); } catch {} HP = null; }
 function showSlide(i) {
   killHero(); if (!SLIDES.length) return hero(null);
-  if (VIEW === "mine") return;
+  if (VIEW !== "home") return;
   si = (i + SLIDES.length) % SLIDES.length; FEAT = SLIDES[si]; hero(FEAT); heroPlay(FEAT);
   const nx = SLIDES[(si + 1) % SLIDES.length]; if (nx !== FEAT && wide(nx)) whenCalm(() => { new Image().src = wide(nx); });   // have the next picture ready
 }
@@ -172,7 +172,8 @@ function row(name, list, ranked) {
 function draw(query = "") {
   const q = query.trim().toLowerCase(), box = $("#rows"); box.innerHTML = "";
   const vids = DATA.videos.filter((v) => !q || [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q));
-  if (VIEW === "mine") {                                      // the My List tab: saved films and films you started, out of the way of the home page
+  if (VIEW === "more") box.innerHTML = MORE;
+  else if (VIEW === "mine") {                                 // the My List tab: saved films and films you started, out of the way of the home page
     mine(vids).forEach(([name, list]) => { if (list.length) { const r = row(name, list); r.classList.add("grid"); box.append(r); } });
     if (!box.children.length) box.innerHTML = '<p class="empty">Nothing here yet. Press + on a film to save it to My List. Films you start watching show up here too.</p>';
   }
@@ -186,7 +187,7 @@ function draw(query = "") {
     if (later.length && !DATA.rows.some((n) => /coming soon/i.test(n))) rows.push(["Coming Soon", later]);
     rows.forEach(([name, list, ranked]) => { if (list.length) box.append(row(name, list, ranked)); });
   }
-  const off = !!q || VIEW === "mine"; $("#hero").hidden = off; box.style.marginTop = off ? "110px" : "";
+  const off = !!q || VIEW !== "home"; $("#hero").hidden = off; box.style.marginTop = off ? "110px" : "";
   $("#empty").hidden = vids.length > 0;
 }
 
@@ -262,13 +263,40 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidd
 
 // ---------- start ----------
 addEventListener("scroll", () => $("#nav").classList.toggle("solid", scrollY > 40), { passive: true });
+
+// ---------- the More page: who we are, and the way to our YouTube channel ----------
+const CHANNEL = "https://www.youtube.com/@CriminalCaseNetwork";
+const MORE = `<section class="about">
+  <div class="about-id">
+    <span class="about-mark">CCN</span>
+    <div>
+      <h1>Criminal Case Network <svg class="check" viewBox="0 0 24 24" role="img" aria-label="Official"><circle cx="12" cy="12" r="11" fill="#1d9bf0"/><path fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.200 12.400 3.200 3.200 6.400-6.800"/></svg></h1>
+      <p class="about-tag">True crime documentaries</p>
+    </div>
+  </div>
+  <div class="about-text">
+    <p class="lead">Welcome to Criminal Case Network! Dive deep into the captivating world of true crime and compelling real stories.</p>
+    <p>We bring you in-depth analysis of unsolved mysteries, forensic breakthroughs in cold cases, and the psychological insights behind criminal behavior. Explore victim-centric narratives, historical true crime events, and fascinating real-life accounts of human resilience and unusual occurrences.</p>
+    <p>Our mission is to provide thought-provoking and meticulously researched content, shedding light on the complexities of justice, human nature, and the stories that shape our world.</p>
+    <p>Subscribe for gripping new episodes covering everything from white-collar crime and unique heists to forgotten victims and the impact of crime on communities. Join our true crime community for deep dives, ethical discussions, and compelling storytelling.</p>
+  </div>
+  <a class="yt-card" href="${CHANNEL}?sub_confirmation=1" target="_blank" rel="noopener">
+    <svg class="yt-logo" viewBox="0 0 68 48" aria-hidden="true"><rect width="68" height="48" rx="12" fill="#f00"/><path fill="#fff" d="M27 34V14l18 10z"/></svg>
+    <span><strong>Subscribe on YouTube</strong><small>Check us out at youtube.com/@CriminalCaseNetwork</small></span>
+    <b class="btn play">Subscribe</b>
+  </a>
+</section>`;
+
 // The My List tab in the top bar.
 function go(view) {
-  VIEW = view; $("#mine-tab").classList.toggle("on", view === "mine"); draw("");
-  if (view === "mine") { killHero(); scrollTo({ top: 0 }); } else showSlide(si);
+  VIEW = view; $("#mine-tab").classList.toggle("on", view === "mine"); document.getElementById("more-tab")?.classList.toggle("on", view === "more"); draw("");
+  if (view !== "home") { killHero(); scrollTo({ top: 0 }); } else showSlide(si);
 }
 $("#mine-tab").onclick = () => go(VIEW === "mine" ? "home" : "mine");
-$("#links").addEventListener("click", () => { if (VIEW === "mine") go("home"); });
+$("#links").addEventListener("click", (e) => {
+  if (e.target.id === "more-tab") { e.preventDefault(); go("more"); } else if (VIEW !== "home") go("home");
+});
+$("#foot-more").onclick = (e) => { e.preventDefault(); go("more"); };
 
 // Search: a bar pops up in the middle of the screen with matching films listed under it.
 const SP = $("#spot"), Q = $("#q"), SL = $("#spot-list");
@@ -306,7 +334,7 @@ const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) thro
 function start(d) {
   DATA = d; DATA.rows = d.rows && d.rows.length ? d.rows : [...new Set(d.videos.flatMap((v) => v.rows || []))];
   SLIDES = slides(); showSlide(0);
-  $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("");
+  $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("") + '<a href="#more" id="more-tab">More</a>';
   draw();
 }
 // Speed: draw the film list this browser saw last time straight away, then swap in the fresh one only if something changed.

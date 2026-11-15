@@ -271,3 +271,27 @@ body.locked { overflow: hidden; }
 .row.top .track { gap: 32px; padding-top: 24px; }
 .top-num { position: relative; z-index: 0; transform-origin: 100% 100%; transition: transform .35s cubic-bezier(.2, .7, .2, 1), -webkit-text-stroke-color .3s, filter .35s; }
 .top-item:hover .top-num { transform: translateX(-18px) scale(1.07); -webkit-text-stroke-color: #fff; filter: drop-shadow(0 0 9px rgba(255, 255, 255, .5)) drop-shadow(0 0 24px rgba(226, 29, 61, .65)); }
+
+/* ---------- More page ---------- */
+.links a.on { color: #fff; font-weight: 500; }
+#foot-more { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.about { max-width: 860px; margin: 0 auto; padding: 20px var(--pad) 70px; animation: rise .6s ease both; }
+.about-id { display: flex; align-items: center; gap: clamp(18px, 3vw, 34px); padding-bottom: 34px; border-bottom: 1px solid var(--line); }
+.about-mark { font-family: var(--serif); font-weight: 700; font-size: clamp(84px, 13vw, 168px); line-height: .8; letter-spacing: .02em; color: var(--red-hi); text-shadow: 0 0 60px rgba(226, 29, 61, .35); }
+.about h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(26px, 3.6vw, 46px); line-height: 1.1; margin: 0 0 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.about .check { width: clamp(26px, 3vw, 38px); height: clamp(26px, 3vw, 38px); flex: none; }
+.about-tag { margin: 0; font-size: 11px; letter-spacing: .34em; text-transform: uppercase; color: var(--dim); }
+.about-text { padding: 34px 0 10px; }
+.about-text p { color: #d9d6d0; font-size: 16.5px; line-height: 1.75; margin: 0 0 18px; }
+.about-text .lead { font-family: var(--serif); font-size: clamp(22px, 2.4vw, 29px); line-height: 1.4; color: var(--text); }
+.yt-card { display: flex; align-items: center; gap: clamp(16px, 3vw, 30px); margin-top: 22px; padding: clamp(20px, 3vw, 32px); background: #151518; border: 1px solid var(--line); border-radius: 12px; transition: border-color .25s, transform .25s, box-shadow .25s; }
+.yt-card:hover { border-color: rgba(255, 255, 255, .45); transform: translateY(-2px); box-shadow: 0 20px 50px rgba(0, 0, 0, .6); }
+.yt-logo { width: clamp(84px, 12vw, 136px); flex: none; }
+.yt-card span { flex: 1; min-width: 0; }
+.yt-card strong { display: block; font-family: var(--serif); font-weight: 600; font-size: clamp(24px, 3vw, 36px); line-height: 1.15; }
+.yt-card small { display: block; color: var(--dim); font-size: 14px; margin-top: 6px; overflow-wrap: anywhere; }
+.yt-card .btn { flex: none; background: #f00; color: #fff; }
+@media (max-width: 640px) { .yt-card { flex-wrap: wrap; } .yt-card .btn { width: 100%; justify-content: center; } }
+.about-id > div { flex: 1; min-width: 0; }
+.about h1 { font-size: clamp(24px, 3.1vw, 40px); }
+@media (min-width: 700px) { .about h1 { flex-wrap: nowrap; white-space: nowrap; } }
