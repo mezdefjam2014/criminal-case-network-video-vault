@@ -3,6 +3,8 @@ import { allowed, json, denied } from "../../lib/auth.js";
 // Back office helper: given a YouTube video id, bring back its title, description, length and year so the form can fill itself in.
 // Title comes from YouTube's public oEmbed. Description, length and year come from the official YouTube Data API,
 // which needs a free key stored in Cloudflare as the secret YT_API_KEY.
+const CHANNELS = ["UCNn7O43drGXApWmbme5edlw"];               // Criminal Case Network. Add another channel's id here to cover it too.
+
 export async function onRequestGet({ request, env }) {
   if (!(await allowed(request, env))) return denied();
   const id = new URL(request.url).searchParams.get("id") || "";
@@ -25,6 +27,25 @@ export async function onRequestGet({ request, env }) {
         }
       } else if (j.error) out.keyProblem = String(j.error.message || "YouTube refused the key.").slice(0, 200);
     } catch { out.keyProblem = "YouTube could not be reached."; }
+  }
+
+  // No key needed for our own channels: YouTube's public feed lists each channel's newest public videos with their full descriptions.
+  if (!out.description) {
+    const unxml = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&");
+    for (const ch of CHANNELS) {
+      try {
+        const r = await fetch("https://www.youtube.com/feeds/videos.xml?channel_id=" + ch);
+        if (!r.ok) continue;
+        const entry = (await r.text()).split("<entry>").find((e) => e.includes(`<yt:videoId>${id}</yt:videoId>`));
+        if (!entry) continue;
+        const pick = (re) => unxml((entry.match(re) || ["", ""])[1].trim());
+        out.description = pick(/<media:description>([\s\S]*?)<\/media:description>/);
+        if (!out.title) out.title = pick(/<media:title>([\s\S]*?)<\/media:title>/);
+        if (!out.year) out.year = pick(/<published>(\d{4})/);
+        out.fromFeed = true; out.needsKey = false; out.keyProblem = "";
+        break;
+      } catch {}
+    }
   }
 
   if (!out.title) {
