@@ -1,54 +1,30 @@
-// A film's own page: /film/<id>. It is the normal site with that film opened, plus the title, description and cover
-// written into the page itself, so links shared on social media show the right preview and search engines can read it.
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-function ytId(link) {
-  const s = String(link || "").trim();
-  if (/^[\w-]{11}$/.test(s)) return s;
-  const m = s.match(/(?:youtu\.be\/|[?&]v=|\/(?:embed|shorts|live)\/)([\w-]{11})/);
-  return m ? m[1] : "";
-}
+import { CHANNEL, esc, ytId, base, filmUrl, films, coverOf, brief, isoLength, stamp, ld, inline, listing, page, social } from "../../lib/seo.js";
 
+// A film's own page: /film/<id>. It is the normal site with that film opened, plus the film's title, description and cover
+// written into the page itself, so shared links show the right preview and search engines can read it as a video page.
 export async function onRequestGet({ params, env, request }) {
-  const url = new URL(request.url), home = url.origin + "/";
-  const main = /\.pages\.dev$/.test(url.hostname) ? "https://ccntv.pages.dev" : url.origin;   // the address search engines and share links should use
-  let list = { videos: [] };
-  try { list = JSON.parse((await env.VAULT.get("videos")) || '{"videos":[]}'); } catch {}
-  const v = (list.videos || []).find((x) => x.id === params.id);
-  if (!v) return Response.redirect(home, 302);
+  const url = new URL(request.url), root = base(url), d = await films(env);
+  const v = d.videos.find((x) => x.id === params.id);
+  if (!v) return Response.redirect(url.origin + "/", 302);
 
-  const film = ytId(v.youtube), any = film || ytId(v.trailer), self = `${main}/film/${encodeURIComponent(v.id)}`;
-  const abs = (u) => (!u ? "" : /^https?:/.test(u) ? u : main + "/" + u.replace(/^\//, ""));
-  const image = abs(v.wide || v.cover) || (any ? `https://i.ytimg.com/vi/${any}/hqdefault.jpg` : "");
-  const title = `${v.title} | Criminal Case Network`;
-  const about = (v.description || "A Criminal Case Network film.").replace(/\s+/g, " ").trim();
-  const short = about.length > 200 ? about.slice(0, 197).replace(/\s+\S*$/, "") + "..." : about;
+  const film = ytId(v.youtube), self = filmUrl(root, v), image = coverOf(v, root, true);
+  const kind = v.kind || "Documentary", about = String(v.description || "A Criminal Case Network film.").replace(/\s+/g, " ").trim();
+  const title = `${v.title} | True Crime ${kind} | Criminal Case Network`, short = brief(about, 160);
 
-  const tags = [
-    `<link rel="canonical" href="${esc(self)}">`,
-    `<meta property="og:site_name" content="Criminal Case Network">`,
-    `<meta property="og:type" content="${film ? "video.other" : "website"}">`,
-    `<meta property="og:title" content="${esc(v.title)}">`,
-    `<meta property="og:description" content="${esc(short)}">`,
-    `<meta property="og:url" content="${esc(self)}">`,
-    image ? `<meta property="og:image" content="${esc(image)}">` : "",
-    `<meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}">`,
-    `<meta name="twitter:title" content="${esc(v.title)}">`,
-    `<meta name="twitter:description" content="${esc(short)}">`,
-    image ? `<meta name="twitter:image" content="${esc(image)}">` : "",
+  const head = [
+    ...social({ type: film ? "video.other" : "website", title: v.title, description: brief(about, 200), url: self, image }),
+    ld({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Criminal Case Network", item: root + "/" }, { "@type": "ListItem", position: 2, name: v.title, item: self }] }),
+    film ? ld({ "@context": "https://schema.org", "@type": "VideoObject", name: v.title, description: about, thumbnailUrl: [image], uploadDate: stamp({ ...v, updated: 0 }),
+      ...(isoLength(v.length) ? { duration: isoLength(v.length) } : {}), embedUrl: `https://www.youtube.com/embed/${film}`, contentUrl: `https://www.youtube.com/watch?v=${film}`,
+      genre: ["True crime", kind], inLanguage: "en", isFamilyFriendly: false, publisher: { "@type": "Organization", name: "Criminal Case Network", url: root + "/", sameAs: [CHANNEL] } }) : "",
+    inline("FILMS", { featured: d.featured, rows: d.rows, videos: d.videos }),
+    inline("OPEN_FILM", v.id),
   ];
-  if (film) {                                                 // tells search engines this page is a video
-    const when = v.liveAt ? new Date(v.liveAt).toISOString() : /^\d{4}$/.test(v.year || "") ? `${v.year}-01-01T00:00:00Z` : new Date().toISOString();
-    const ld = { "@context": "https://schema.org", "@type": "VideoObject", name: v.title, description: about, thumbnailUrl: [image], uploadDate: when,
-      embedUrl: `https://www.youtube-nocookie.com/embed/${film}`, contentUrl: `https://www.youtube.com/watch?v=${film}`, publisher: { "@type": "Organization", name: "Criminal Case Network" } };
-    tags.push(`<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`);
-  }
-  tags.push(`<script>window.OPEN_FILM=${JSON.stringify(v.id).replace(/</g, "\\u003c")}</script>`);
-
-  let html = await (await env.ASSETS.fetch(new URL("/", url))).text();
-  html = html.replace(/<meta charset="utf-8">/i, '<meta charset="utf-8"><base href="/">')       // first thing in the page, so every file on it is found from the site's root
-    .replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>`)
-    .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(short)}">`)
-    .replace(/<meta property="og:[^>]*>\s*/g, "")
-    .replace("</head>", tags.filter(Boolean).join("\n") + "\n</head>");
-  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300" } });
+  const others = d.videos.filter((o) => o.id !== v.id);
+  const body = `<article class="ssr-about"><h1>${esc(v.title)}</h1><p>${esc([kind, v.year, film ? v.length : "Coming soon"].filter(Boolean).join(" · "))}</p>`
+    + (image ? `<p><img src="${esc(image)}" alt="${esc(v.title)}" width="960" height="540" style="max-width:100%;height:auto"></p>` : "")
+    + `<p>${esc(about)}</p>${film ? `<p><a href="https://www.youtube.com/watch?v=${film}">Watch “${esc(v.title)}” on YouTube</a></p>` : ""}`
+    + (others.length ? `<h2>More true crime documentaries</h2>${listing(others)}` : "") + `<p><a href="/">All films from Criminal Case Network</a></p></article>`;
+  return page(env, url, { title, description: short, head, body });
 }

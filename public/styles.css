@@ -309,3 +309,12 @@ body.locked { overflow: hidden; }
 .more-grid .tile:hover, .more-grid .tile:focus-visible { transform: scale(1.04); }
 .more-grid .tile .cap { opacity: 1; transform: none; }
 @media (max-width: 640px) { .more-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- plain page content that is there before the site's scripts run (search engines read this) ---------- */
+a.tile { display: block; }
+.ssr-list, .ssr-about { max-width: 900px; margin: 0 var(--pad) 28px; color: var(--dim); font-size: 14.5px; line-height: 1.65; }
+.ssr-list { padding-left: 18px; } .ssr-list li { margin-bottom: 8px; }
+.ssr-list a, .ssr-about a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.ssr-about { padding-top: 110px; } .row.ssr + .ssr-list + .ssr-about, .ssr-list + .ssr-about { padding-top: 0; }
+.ssr-about h1 { font-family: var(--serif); font-size: clamp(28px, 4vw, 44px); color: var(--text); margin: 0 0 8px; }
+.ssr-about h2 { font-size: 19px; font-weight: 500; color: var(--text); margin: 26px 0 10px; }

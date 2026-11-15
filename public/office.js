@@ -47,7 +47,7 @@ const stored = (u) => (String(u || "").match(/^api\/cover\/([a-z0-9-]+\.jpg)$/) 
 const drop = (u) => stored(u) ? api("DELETE", "api/cover/" + stored(u)).catch(() => {}) : null;
 
 function draw() {
-  $("#rows").value = DATA.rows.join(", ");
+  $("#rows").value = DATA.rows.join(", "); $("#google").value = DATA.google || "";
   const list = $("#list"); list.innerHTML = "";
   if (!DATA.videos.length) { list.innerHTML = '<div class="none">No films yet. Press "Add a film" to put up the first one.</div>'; return; }
   DATA.videos.forEach((v, i) => {
@@ -82,6 +82,12 @@ $("#rows").onchange = async () => {
   DATA.rows = [...new Set($("#rows").value.split(",").map((s) => s.trim()).filter(Boolean))];
   try { await save(); say("#msg", "Rows saved.", "good"); } catch (x) { say("#msg", x.message, "bad"); }
   draw();
+};
+
+$("#google").onchange = async () => {
+  DATA.google = $("#google").value.replace(/^.*content="?|google-site-verification=|["' />]/g, "").trim();     // accepts the bare code, the whole tag, or the "google-site-verification=" form
+  $("#google").value = DATA.google;
+  try { await save(); say("#msg", DATA.google ? "Google code saved. It is on the home page now; press Verify in Google Search Console." : "Google code removed.", "good"); } catch (x) { say("#msg", x.message, "bad"); }
 };
 
 // ---------- cover: any picture in, a small sharp 16:9 JPEG out ----------
@@ -180,6 +186,7 @@ $("#form").onsubmit = async (e) => {
     }
     const rel = $("#f-release").value;
     if (yt && !ytId(v.youtube)) v.liveAt = Date.now();      // the moment it goes live: drives the NEW badge for two weeks
+    v.updated = Date.now();
     Object.assign(v, { top: $("#f-top").checked, title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel || "", description: $("#f-desc").value.trim(),
       kind: $("#f-kind").value, length: $("#f-length").value.trim(), year: $("#f-year").value.trim(), rows: [...document.querySelectorAll("#f-rows input:checked")].map((c) => c.value) });
     if (!editing) DATA.videos.unshift(v);
