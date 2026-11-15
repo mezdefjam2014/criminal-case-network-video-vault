@@ -170,7 +170,7 @@ $("#form").onsubmit = async (e) => {
   if (tr && !ytId(tr)) return say("#f-msg", "The trailer link is not a YouTube link.", "bad");
   $("#save").disabled = true; say("#f-msg", "Saving...");
   try {
-    const v = editing || { id: ($("#f-title").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "film") + "-" + Date.now().toString(36) };
+    const v = editing || { id: ($("#f-title").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "film") + "-" + Date.now().toString(36), added: Date.now() };
     const old = [];
     if (picked) {                                             // new cover: upload, then erase the one it replaces
       const base = v.id.slice(0, 60) + "-" + Date.now().toString(36);
@@ -179,6 +179,7 @@ $("#form").onsubmit = async (e) => {
       v.wide = picked.wide ? (await api("PUT", `api/cover/${base}-wide.jpg`, picked.wide, "image/jpeg")).url : "";
     }
     const rel = $("#f-release").value;
+    if (yt && !ytId(v.youtube)) v.liveAt = Date.now();      // the moment it goes live: drives the NEW badge for two weeks
     Object.assign(v, { top: $("#f-top").checked, title: $("#f-title").value.trim(), youtube: yt, trailer: tr, release: rel || "", description: $("#f-desc").value.trim(),
       kind: $("#f-kind").value, length: $("#f-length").value.trim(), year: $("#f-year").value.trim(), rows: [...document.querySelectorAll("#f-rows input:checked")].map((c) => c.value) });
     if (!editing) DATA.videos.unshift(v);
