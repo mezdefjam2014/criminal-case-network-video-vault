@@ -1,0 +1,62 @@
+{
+  "featured": "the-last-broadcast",
+  "rows": ["New Releases", "Documentaries", "Trailers & Previews"],
+  "videos": [
+    {
+      "id": "the-last-broadcast",
+      "title": "The Last Broadcast",
+      "youtube": "",
+      "cover": "covers/sample-3.jpg",
+      "wide": "covers/sample-3-wide.jpg",
+      "rows": ["New Releases", "Documentaries"],
+      "year": "2026",
+      "length": "13 min",
+      "kind": "Documentary",
+      "description": "The Cedric Garrett case, told from the first report to the last recording. A Criminal Case Network documentary."
+    },
+    {
+      "id": "sample-1",
+      "title": "Hit Your Screen Record",
+      "youtube": "",
+      "cover": "covers/sample-1.jpg",
+      "rows": ["New Releases", "Trailers & Previews"],
+      "year": "2026",
+      "length": "1 min",
+      "kind": "Preview",
+      "description": "Sample entry. Replace it with your own film from the back office."
+    },
+    {
+      "id": "sample-2",
+      "title": "She Had Already Left",
+      "youtube": "",
+      "cover": "covers/sample-2.jpg",
+      "rows": ["New Releases", "Documentaries"],
+      "year": "2026",
+      "length": "14 min",
+      "kind": "Documentary",
+      "description": "Sample entry. Replace it with your own film from the back office."
+    },
+    {
+      "id": "sample-4",
+      "title": "9 Years of Warnings",
+      "youtube": "",
+      "cover": "covers/sample-4.jpg",
+      "rows": ["New Releases", "Documentaries", "Trailers & Previews"],
+      "year": "2026",
+      "length": "12 min",
+      "kind": "Documentary",
+      "description": "Sample entry. Replace it with your own film from the back office."
+    },
+    {
+      "id": "sample-5",
+      "title": "What the Internet Got Wrong",
+      "youtube": "",
+      "cover": "covers/sample-5.jpg",
+      "rows": ["New Releases", "Documentaries", "Trailers & Previews"],
+      "year": "2026",
+      "length": "15 min",
+      "kind": "Documentary",
+      "description": "Sample entry. Replace it with your own film from the back office."
+    }
+  ]
+}
