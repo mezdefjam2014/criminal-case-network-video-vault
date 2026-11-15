@@ -10,13 +10,14 @@ function ytId(link) {
 
 export async function onRequestGet({ params, env, request }) {
   const url = new URL(request.url), home = url.origin + "/";
+  const main = /\.pages\.dev$/.test(url.hostname) ? "https://ccntv.pages.dev" : url.origin;   // the address search engines and share links should use
   let list = { videos: [] };
   try { list = JSON.parse((await env.VAULT.get("videos")) || '{"videos":[]}'); } catch {}
   const v = (list.videos || []).find((x) => x.id === params.id);
   if (!v) return Response.redirect(home, 302);
 
-  const film = ytId(v.youtube), any = film || ytId(v.trailer), self = `${url.origin}/film/${encodeURIComponent(v.id)}`;
-  const abs = (u) => (!u ? "" : /^https?:/.test(u) ? u : url.origin + "/" + u.replace(/^\//, ""));
+  const film = ytId(v.youtube), any = film || ytId(v.trailer), self = `${main}/film/${encodeURIComponent(v.id)}`;
+  const abs = (u) => (!u ? "" : /^https?:/.test(u) ? u : main + "/" + u.replace(/^\//, ""));
   const image = abs(v.wide || v.cover) || (any ? `https://i.ytimg.com/vi/${any}/hqdefault.jpg` : "");
   const title = `${v.title} | Criminal Case Network`;
   const about = (v.description || "A Criminal Case Network film.").replace(/\s+/g, " ").trim();

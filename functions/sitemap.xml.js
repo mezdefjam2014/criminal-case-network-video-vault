@@ -1,6 +1,6 @@
 // The list of pages for search engines: the home page and one page per film. It updates itself as films are added or removed.
 export async function onRequestGet({ env, request }) {
-  const origin = new URL(request.url).origin;
+  const here = new URL(request.url), origin = /\.pages\.dev$/.test(here.hostname) ? "https://ccntv.pages.dev" : here.origin;
   let list = { videos: [] };
   try { list = JSON.parse((await env.VAULT.get("videos")) || '{"videos":[]}'); } catch {}
   const urls = [origin + "/", ...(list.videos || []).map((v) => `${origin}/film/${encodeURIComponent(v.id)}`)];

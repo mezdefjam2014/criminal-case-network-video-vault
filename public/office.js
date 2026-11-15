@@ -8,7 +8,7 @@ function ytId(link) {
   return m ? m[1] : "";
 }
 // Films, covers and the back office live on Cloudflare. On the Cloudflare address (or this PC) they are next door; anywhere else, ask Cloudflare.
-const API = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname) ? "" : "https://criminal-case-network-video-vault.pages.dev/";
+const API = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname) ? "" : "https://ccntv.pages.dev/";
 const at = (u) => (u && String(u).startsWith("api/") ? API + u : u || "");
 const say = (id, text, kind = "") => { const e = $(id); e.textContent = text; e.className = "msg " + kind; };
 const DEFAULT_ROWS = ["New Releases", "Documentaries", "Trailers & Previews"];

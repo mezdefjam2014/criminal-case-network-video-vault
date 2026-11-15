@@ -3,7 +3,7 @@ const $ = (s) => document.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Films, covers and the back office live on Cloudflare. On the Cloudflare address (or this PC) they are next door; anywhere else, ask Cloudflare.
-const API = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname) ? "" : "https://criminal-case-network-video-vault.pages.dev/";
+const API = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname) ? "" : "https://ccntv.pages.dev/";
 const at = (u) => (u && String(u).startsWith("api/") ? API + u : u || "");
 const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg>';
 const INFO = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>';
@@ -52,7 +52,7 @@ function listBtn(v) {
   show(); return b;
 }
 // Share: every film has its own link. On a phone it opens the share sheet; elsewhere it copies the link.
-const SITE = API === "" ? location.origin : "https://criminal-case-network-video-vault.pages.dev";
+const SITE = /^localhost$|^127\.0\.0\.1$/.test(location.hostname) ? location.origin : "https://ccntv.pages.dev";
 const SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 7.500 12 3.500l4 4M5 12v6.500A1.500 1.500 0 0 0 6.500 20h11a1.500 1.500 0 0 0 1.500-1.500V12"/></svg>';
 function toast(text) {
   let t = document.getElementById("toast"); if (!t) { t = el("div", "toast"); t.id = "toast"; document.body.append(t); }

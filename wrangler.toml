@@ -1,4 +1,4 @@
-name = "criminal-case-network-video-vault"
+name = "ccntv"
 compatibility_date = "2026-10-01"
 pages_build_output_dir = "public"
 

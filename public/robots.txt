@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://criminal-case-network-video-vault.pages.dev/sitemap.xml
+Sitemap: https://ccntv.pages.dev/sitemap.xml
