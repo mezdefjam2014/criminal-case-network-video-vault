@@ -38,7 +38,8 @@ const soon = (v) => live(v) ? "" : `<div class="soon"><span class="soon-tag">Com
 setInterval(() => document.querySelectorAll("[data-release]").forEach((e) => { e.textContent = left(e.dataset.release) || "Any moment now"; }), 1000);
 
 let DATA = { videos: [], rows: [] };
-let VIEW = "home";                                          // "home" or "mine" (the My List tab)
+let VIEW = "home", TOPIC = null;
+const TOPICS = window.TOPICS || [];                         // topics arrive with the page; each lists the films that belong to it                                          // "home" or "mine" (the My List tab)
 
 // ---------- saved in this browser: My List and where you stopped watching ----------
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem("ccn-" + k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem("ccn-" + k, JSON.stringify(v)); } catch {} } };
@@ -67,9 +68,20 @@ function shareBtn(v) {
   };
   return b;
 }
+// Topics: chips that lead to each topic's page.
+function chips(only) {
+  const s = el("section", "topics", only ? "" : "<h2>Browse by topic</h2>"), w = el("div", "chips");
+  (only || TOPICS).forEach((t) => {
+    const a = el("a", "chip" + (VIEW === "topic" && TOPIC && TOPIC.slug === t.slug ? " on" : ""), `${esc(t.name)}<i>${t.ids.length}</i>`); a.href = "/topic/" + t.slug;
+    a.onclick = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); if (!$("#modal").hidden) { TOPIC = t; VIEW = "topic"; shut(); } TOPIC = t; go("topic"); };
+    w.append(a);
+  });
+  s.append(w); return s;
+}
 // More like this: other films that share a row or a type with this one.
 function related(v) {
   const box = $("#m-more"); box.innerHTML = "";
+  const mineT = TOPICS.filter((t) => t.ids.includes(v.id)); if (mineT.length) box.append(chips(mineT));
   const score = (o) => (o.rows || []).filter((r) => (v.rows || []).includes(r)).length * 2 + (o.kind === v.kind ? 1 : 0) + (live(o) ? 0.5 : 0);
   const list = DATA.videos.filter((o) => o.id !== v.id).map((o) => [score(o), o]).sort((a, b) => b[0] - a[0]).slice(0, 6).map((x) => x[1]);
   if (!list.length) return;
@@ -198,7 +210,12 @@ function row(name, list, ranked) {
 function draw(query = "") {
   const q = query.trim().toLowerCase(), box = $("#rows"); box.innerHTML = "";
   const vids = DATA.videos.filter((v) => !q || [v.title, v.description, v.kind, ...(v.rows || [])].join(" ").toLowerCase().includes(q));
-  if (VIEW === "more") box.innerHTML = MORE;
+  if (VIEW === "topic" && TOPIC) {                             // a topic's page: every film that deals with that subject
+    const list = TOPIC.ids.map((id) => vids.find((v) => v.id === id)).filter(Boolean);
+    box.innerHTML = `<section class="topic-head"><p class="tagline">Browse by topic</p><h1>${esc(TOPIC.name)}</h1><p>${esc(TOPIC.intro)}</p></section>`;
+    const r = row(`${list.length} film${list.length === 1 ? "" : "s"}`, list); r.classList.add("grid"); box.append(r, chips());
+  }
+  else if (VIEW === "more") box.innerHTML = MORE;
   else if (VIEW === "mine") {                                 // the My List tab: saved films and films you started, out of the way of the home page
     mine(vids).forEach(([name, list]) => { if (list.length) { const r = row(name, list); r.classList.add("grid"); box.append(r); } });
     if (!box.children.length) box.innerHTML = '<p class="empty">Nothing here yet. Press + on a film to save it to My List. Films you start watching show up here too.</p>';
@@ -212,6 +229,7 @@ function draw(query = "") {
     const later = vids.filter((v) => !live(v));
     if (later.length && !DATA.rows.some((n) => /coming soon/i.test(n))) rows.push(["Coming Soon", later]);
     rows.forEach(([name, list, ranked]) => { if (list.length) box.append(row(name, list, ranked)); });
+    if (TOPICS.length) box.append(chips());
   }
   const off = !!q || VIEW !== "home"; $("#hero").hidden = off; box.style.marginTop = off ? "110px" : "";
   $("#empty").hidden = vids.length > 0;
@@ -220,16 +238,20 @@ function draw(query = "") {
 // ---------- film window ----------
 // mode: "film" plays the film, "trailer" plays the trailer with sound, nothing = info view (the trailer plays quietly as a preview if there is one).
 // Each open film has its own address, so the back button closes it and the address bar can be copied.
-const ROUTED = API === "", HOME_TITLE = document.title;
+const ROUTED = API === "", HOME_TITLE0 = window.OPEN_FILM || window.OPEN_TOPIC ? "Criminal Case Network | True Crime Documentaries and Real Criminal Cases" : document.title;
 function route(v) {
   if (!ROUTED) return;
-  const path = v ? "/film/" + encodeURIComponent(v.id) : "/";
+  const onTopic = VIEW === "topic" && TOPIC, path = v ? "/film/" + encodeURIComponent(v.id) : onTopic ? "/topic/" + TOPIC.slug : "/";
   if (location.pathname !== path) history.pushState(v ? { film: v.id } : null, "", path);
-  document.title = v ? `${v.title} | Criminal Case Network` : HOME_TITLE;
+  document.title = v ? `${v.title} | Criminal Case Network` : onTopic ? `${TOPIC.name} | Criminal Case Network` : HOME_TITLE0;
 }
 addEventListener("popstate", () => {
   const m = location.pathname.match(/^\/film\/(.+)/), v = m && DATA.videos.find((x) => x.id === decodeURIComponent(m[1]));
-  if (v) open(v); else if (!$("#modal").hidden) shut();
+  if (v) return open(v);
+  const tm = location.pathname.match(/^\/topic\/([\w-]+)/), tp = tm && TOPICS.find((x) => x.slug === tm[1]);
+  if (tp) { TOPIC = tp; VIEW = "topic"; } else if (VIEW === "topic") VIEW = "home";
+  if (!$("#modal").hidden) shut();
+  go(VIEW);
 });
 function open(v, mode) {
   route(v);
@@ -360,7 +382,7 @@ const MORE = `<section class="about">
 
 // The My List tab in the top bar.
 function go(view) {
-  VIEW = view; $("#mine-tab").classList.toggle("on", view === "mine"); document.getElementById("more-tab")?.classList.toggle("on", view === "more"); draw("");
+  VIEW = view; if ($("#modal").hidden) route(null); $("#mine-tab").classList.toggle("on", view === "mine"); document.getElementById("more-tab")?.classList.toggle("on", view === "more"); draw("");
   if (view !== "home") { killHero(); scrollTo({ top: 0 }); } else showSlide(si);
 }
 $("#mine-tab").onclick = () => go(VIEW === "mine" ? "home" : "mine");
@@ -407,6 +429,7 @@ function start(d) {
   SLIDES = slides(); showSlide(0);
   $("#links").innerHTML = '<a href="#">Home</a>' + DATA.rows.map((n) => `<a href="#${slug(n)}">${esc(n)}</a>`).join("") + '<a href="#more" id="more-tab">About</a>';
   draw();
+  if (window.OPEN_TOPIC) { const t = TOPICS.find((x) => x.slug === window.OPEN_TOPIC); window.OPEN_TOPIC = null; if (t) { TOPIC = t; go("topic"); } }
   const want = window.OPEN_FILM || (location.hash.match(/^#film=(.+)/) || [])[1];
   if (want) { const v = DATA.videos.find((x) => x.id === decodeURIComponent(want)); if (v) { window.OPEN_FILM = null; if (location.hash.startsWith("#film=")) history.replaceState(null, "", location.pathname); open(v); } }
 }

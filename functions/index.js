@@ -1,11 +1,11 @@
-import { quick, MAIN, CHANNEL, SITE_TITLE, SITE_ABOUT, ABOUT_TEXT, esc, ytId, base, filmUrl, films, coverOf, ld, inline, tile, listing, page, social } from "../lib/seo.js";
+import { quick, MAIN, CHANNEL, SITE_TITLE, SITE_ABOUT, ABOUT_TEXT, esc, ytId, base, filmUrl, films, topicMap, coverOf, ld, inline, tile, listing, page, social } from "../lib/seo.js";
 
 // The home page. The film list is written into the page before it is sent: search engines can read every film and follow
 // its link without running scripts, and visitors get the films without a second request.
 export const onRequestGet = (c) => quick(c, build);
 async function build({ env, request }) {
   const url = new URL(request.url), root = base(url), d = await films(env), list = d.videos;
-  const lead = list.find((v) => v.id === d.featured) || list[0];
+  const topics = topicMap(list);
   const head = [
     ...social({ type: "website", title: SITE_TITLE, description: SITE_ABOUT, url: root + "/", image: root + "/share.jpg" }),
     `<link rel="alternate" type="application/atom+xml" title="Criminal Case Network films" href="${root}/feed.xml">`,
@@ -14,10 +14,11 @@ async function build({ env, request }) {
     ld({ "@context": "https://schema.org", "@type": "Organization", name: "Criminal Case Network", url: root + "/", description: SITE_ABOUT, logo: root + "/icon-512.png", image: root + "/share.jpg", sameAs: [CHANNEL] }),
     list.length ? ld({ "@context": "https://schema.org", "@type": "ItemList", name: "True crime documentaries from Criminal Case Network",
       itemListElement: list.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: filmUrl(root, v), name: v.title })) }) : "",
-    inline("FILMS", { featured: d.featured, rows: d.rows, videos: d.videos }),
+    inline("FILMS", { featured: d.featured, rows: d.rows, videos: d.videos }), inline("TOPICS", topics),
   ];
   const out = list.filter((v) => ytId(v.youtube)), soon = list.filter((v) => !ytId(v.youtube));
   const body = (list.length ? `<section class="row ssr"><h1>True crime documentaries and real criminal cases</h1><div class="track">${out.concat(soon).map((v) => tile(v, root)).join("")}</div></section>${listing(list)}` : "")
+    + (topics.length ? `<section class="ssr-about"><h2>Browse true crime by topic</h2><p>${topics.map((t) => `<a href="/topic/${t.slug}">${esc(t.name)}</a>`).join(" · ")}</p></section>` : "")
     + `<section class="ssr-about"><h2>About Criminal Case Network</h2>${ABOUT_TEXT.map((p) => `<p>${esc(p)}</p>`).join("")}<p><a href="${CHANNEL}">Criminal Case Network on YouTube</a></p></section>`;
   return page(env, url, { title: SITE_TITLE, description: SITE_ABOUT, head, body });
 }
