@@ -245,3 +245,12 @@ body.locked { overflow: hidden; }
 .hero .desc { -webkit-line-clamp: 2; margin-bottom: 24px; }
 .hero .soon { margin: 4px 0 14px; }
 .hero h1, .info h2 { font-variant-numeric: lining-nums; }
+
+/* ---------- ranked row: big outlined numbers beside the covers ---------- */
+.row.top .track { gap: 6px; padding-top: 18px; }
+.top-item { display: flex; align-items: flex-end; flex: none; scroll-snap-align: start; }
+.top-num { font-family: var(--sans); font-weight: 600; font-size: clamp(120px, 15vw, 230px); line-height: .74; letter-spacing: -.07em; color: #0b0b0d; -webkit-text-stroke: 3px #77777c; paint-order: stroke fill; margin-right: -.13em; padding-left: .04em; user-select: none; transition: -webkit-text-stroke-color .3s; font-variant-numeric: lining-nums; }
+.top-item:hover .top-num { -webkit-text-stroke-color: #fff; }
+.top-item .tile { position: relative; z-index: 1; width: clamp(170px, 19vw, 285px); scroll-snap-align: none; }
+@media (max-width: 820px) { .top-item .tile { width: 48vw; } .top-num { font-size: 30vw; -webkit-text-stroke-width: 2px; } }
+.top-num { -webkit-text-stroke: 4px #9c9ca2; margin-right: -.1em; }

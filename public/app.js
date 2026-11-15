@@ -135,7 +135,11 @@ function tile(v, rank) {
 
 function row(name, list, ranked) {
   const r = el("section", "row"); r.id = slug(name);
-  const track = el("div", "track"); list.forEach((v, i) => track.append(tile(v, ranked && i + 1)));
+  const track = el("div", "track"); list.forEach((v, i) => {                                    // ranked rows: a big outlined number stands beside each cover
+    if (!ranked) return track.append(tile(v));
+    const w = el("div", "top-item"); w.append(el("span", "top-num", String(i + 1)), tile(v)); track.append(w);
+  });
+  if (ranked) r.classList.add("top");
   const L = el("button", "arrow l", CHEV("l")), R = el("button", "arrow r", CHEV("r"));
   L.setAttribute("aria-label", "Scroll back"); R.setAttribute("aria-label", "Scroll forward");
   const step = (d) => track.scrollBy({ left: d * track.clientWidth * 0.85, behavior: "smooth" });
@@ -156,7 +160,7 @@ function draw(query = "") {
   else if (q) { if (vids.length) { const r = row(`Results for "${query.trim()}"`, vids); r.classList.add("grid"); box.append(r); } }
   else {
     const rows = DATA.rows.map((name) => [name, vids.filter((v) => (v.rows || []).includes(name))]).filter((r) => r[1].length);
-    const pop = vids.filter((v) => live(v) && PLAYS[v.id] > 0).sort((a, b) => PLAYS[b.id] - PLAYS[a.id]).slice(0, 10);
+    const pop = vids.filter(live).sort((a, b) => (PLAYS[b.id] || 0) - (PLAYS[a.id] || 0)).slice(0, 10);   // most played first; films with no plays yet follow in list order
     const tr = rows.findIndex((r) => /trailer/i.test(r[0]));
     if (pop.length) rows.splice(tr >= 0 ? tr + 1 : Math.min(1, rows.length), 0, ["Popular Right Now", pop, true]);
     const later = vids.filter((v) => !live(v));
