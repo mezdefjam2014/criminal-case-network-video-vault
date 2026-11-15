@@ -295,3 +295,5 @@ body.locked { overflow: hidden; }
 .about-id > div { flex: 1; min-width: 0; }
 .about h1 { font-size: clamp(24px, 3.1vw, 40px); }
 @media (min-width: 700px) { .about h1 { flex-wrap: nowrap; white-space: nowrap; } }
+
+.stage iframe.pre { visibility: hidden; }

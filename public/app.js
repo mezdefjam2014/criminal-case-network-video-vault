@@ -194,15 +194,19 @@ function draw(query = "") {
 // ---------- film window ----------
 // mode: "film" plays the film, "trailer" plays the trailer with sound, nothing = info view (the trailer plays quietly as a preview if there is one).
 function open(v, mode) {
-  stop(); if (HP && FEAT) DONE.add(FEAT.id); killHero();
-  const stage = $("#stage"), film = ytId(v.youtube), tr = ytId(v.trailer);
+  const film = ytId(v.youtube), tr = ytId(v.trailer);
+  const pre = mode === "film" && PRE && PRE.v === v && PRE.ok ? PRE : null;   // the film is already loaded and waiting behind the picture
+  stop(pre); if (HP && FEAT) DONE.add(FEAT.id); killHero();
+  const stage = $("#stage");
   if (!mode && !film && tr) mode = "trailer";                // coming soon: clicking it plays the trailer; with no trailer it shows the picture
   $("#m-title").textContent = v.title; $("#m-meta").innerHTML = meta(v); $("#m-desc").textContent = v.description || "";
   const info = $("#m-extra"); info.innerHTML = soon(v); buttons(v, info, false);
-  if (mode === "film" && film) watch(v, film, true);
+  if (mode === "film" && film) pre ? adopt(v, pre) : watch(v, film, true);
   else if (mode === "trailer" && tr) watch(v, tr, false);
-  else if (tr) stage.innerHTML = embed(tr, "&mute=1");
-  else stage.innerHTML = `<img src="${esc(wide(v))}" alt=""><div class="shade"></div>`;
+  else {
+    stage.innerHTML = tr ? embed(tr, "&mute=1") : `<img src="${esc(wide(v))}" alt=""><div class="shade"></div>`;
+    if (film) prewarm(v, film);                              // get the film ready now, so pressing Play starts it at once, with sound
+  }
   $("#modal").hidden = false; $("#modal").scrollTop = 0; document.body.classList.add("locked"); $("#close").focus();
 }
 function shut() { stop(); $("#modal").hidden = true; $("#stage").innerHTML = ""; document.body.classList.remove("locked"); showSlide(si); draw($("#q").value); }
@@ -230,24 +234,48 @@ function paint() {
   $("#c-play").innerHTML = st === 1 || st === 3 ? I.pause : I.play;
   $("#c-mute").innerHTML = P.isMuted() || P.getVolume() === 0 ? I.off : I.vol;
 }
-async function watch(v, id, track) {
-  // The player is put on the page in the same instant as the click, already set to start, so the browser treats it as the viewer pressing play.
-  const from = track && part(v) ? SEEN[v.id].t : 0;
-  now = { v, track }; $("#ctrl").hidden = false; $("#c-speed").value = "1";
-  $("#stage").innerHTML = `<iframe id="yt" src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&controls=0&rel=0&playsinline=1&fs=0&enablejsapi=1&start=${from}&origin=${encodeURIComponent(location.origin)}" title="${esc(v.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
-  await loadApi(); if (!now || now.v !== v) return;
-  P = new YT.Player("yt", {
-    events: { onReady: () => { P.setVolume(store.get("vol", 100)); $("#c-vol").value = store.get("vol", 100); P.playVideo(); paint();
-      setTimeout(() => { if (ready() && now && now.v === v && ![1, 3].includes(P.getPlayerState())) { P.mute(); P.playVideo(); } }, 1800); }  /* if the browser refuses to start with sound, start silent so it still plays */, onStateChange: (e) => { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
-  clearInterval(timer); let n = 0; let on = 0; timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); if (track && ready() && P.getPlayerState() === 1 && ++on === 60) countPlay(v); }, 500);
+const src = (id, from, auto) => `https://www.youtube-nocookie.com/embed/${id}?${auto ? "autoplay=1&" : ""}controls=0&rel=0&playsinline=1&fs=0&enablejsapi=1&start=${from}&origin=${encodeURIComponent(location.origin)}`;
+const ALLOW = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+const loud = () => { const s = +store.get("vol", 100); return s >= 5 ? s : 100; };             // never come back at zero volume
+function sound() { if (!ready()) return; P.unMute(); P.setVolume(loud()); $("#c-vol").value = loud(); }
+function tick(v, track) {
+  clearInterval(timer); let n = 0, on = 0;
+  timer = setInterval(() => { paint(); if (++n % 10 === 0) remember(); if (track && ready() && P.getPlayerState() === 1 && ++on === 60) countPlay(v); }, 500);
 }
-function stop() {
+const events = (own) => ({ onStateChange: (e) => { if (P === own()) { paint(); if (e.data === 0 || e.data === 2) remember(); } } });
+
+// Some browsers will not let a video start by itself. So while the info view is up, the film is loaded quietly and held, not playing.
+// Pressing Play then only has to say "play" to a player that is already there, which browsers allow, with sound.
+let PRE = null;
+function prewarm(v, id) {
+  const f = el("iframe", "pre"); f.allow = ALLOW; f.allowFullscreen = true; f.title = v.title; f.src = src(id, part(v) ? SEEN[v.id].t : 0, false);
+  $("#stage").append(f);
+  const mine = (PRE = { v, f, p: null, ok: false });
+  loadApi().then(() => { if (PRE !== mine || !document.contains(f)) return; mine.p = new YT.Player(f, { events: { onReady: () => { mine.ok = true; }, ...events(() => mine.p) } }); });
+}
+function adopt(v, pre) {
+  [...$("#stage").children].forEach((c) => c !== pre.f && c.remove()); pre.f.classList.remove("pre");
+  P = pre.p; PRE = null; now = { v, track: true }; userMuted = false; $("#ctrl").hidden = false; $("#c-speed").value = "1";
+  sound(); P.playVideo(); paint(); tick(v, true);
+}
+async function watch(v, id, track) {
+  // No player was waiting (a trailer or a direct play): put one on the page in the same instant as the click, set to start.
+  const from = track && part(v) ? SEEN[v.id].t : 0;
+  now = { v, track }; userMuted = false; $("#ctrl").hidden = false; $("#c-speed").value = "1";
+  $("#stage").innerHTML = `<iframe id="yt" src="${src(id, from, true)}" title="${esc(v.title)}" allow="${ALLOW}" allowfullscreen></iframe>`;
+  await loadApi(); if (!now || now.v !== v) return;
+  const mine = (P = new YT.Player("yt", { events: { onReady: () => { if (P !== mine) return; sound(); P.playVideo(); paint(); }, ...events(() => mine) } }));
+  tick(v, track);
+}
+function stop(keep) {
   remember(); clearInterval(timer); if (document.fullscreenElement) document.exitFullscreen();
   try { P && P.destroy(); } catch {} P = null; now = null; $("#ctrl").hidden = true;
+  if (PRE && PRE !== keep) { try { PRE.p && PRE.p.destroy(); } catch {} PRE.f.remove(); PRE = null; }
 }
-const toggle = () => ready() && (P.getPlayerState() === 1 ? P.pauseVideo() : P.playVideo());
+let userMuted = false;                                      // only the viewer's own mute button keeps it silent
+const toggle = () => { if (!ready()) return; if (P.getPlayerState() === 1) return P.pauseVideo(); if (!userMuted) sound(); P.playVideo(); };
 const jump = (s) => ready() && P.seekTo(Math.max(0, P.getCurrentTime() + s), true);
-const mute = () => ready() && (P.isMuted() ? P.unMute() : P.mute());
+const mute = () => { if (!ready()) return; userMuted = !P.isMuted(); userMuted ? P.mute() : sound(); };
 const full = () => document.fullscreenElement ? document.exitFullscreen() : $("#theater").requestFullscreen?.();
 $("#c-play").onclick = toggle; $("#c-back").onclick = () => jump(-10); $("#c-fwd").onclick = () => jump(10); $("#c-mute").onclick = mute; $("#c-full").onclick = full;
 $("#c-seek").oninput = (e) => ready() && P.seekTo((e.target.value / 1000) * P.getDuration(), true);
